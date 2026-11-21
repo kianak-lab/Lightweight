@@ -157,7 +157,10 @@ body.signedout header,body.signedout main,body.signedout nav{display:none}
 .lg-logo svg{width:100%;height:100%;display:block}
 .lg-t{font-size:28px;font-weight:850;letter-spacing:2px;margin-bottom:6px}
 .lg-err{margin-top:12px;color:#ffb4a0;background:#2b1a16;border:1px solid #4a2a20;border-radius:10px;padding:9px 11px;font-size:14px}
-#lgPin{letter-spacing:10px;font-size:22px}
+.lg-ph{width:96px;height:96px;border-radius:50%;background:var(--card2);border:2px dashed #3a4150;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 18px;position:relative;overflow:hidden;color:var(--ac);cursor:pointer}
+.lg-ph span{font-size:30px;line-height:1}.lg-ph small{font-size:11px;color:var(--mu)}
+.lg-ph img{width:100%;height:100%;object-fit:cover}
+.lg-ph input{position:absolute;inset:0;opacity:0}
 .parts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .part{background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--tx);padding:6px 2px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px}
 .part svg{width:34px;height:52px}
@@ -392,37 +395,52 @@ const aiApi = {
   async limits(){ return {images:true}; }
 };
 
-/* ---------- sign in (name + PIN) ---------- */
+/* ---------- sign in (name + photo) ---------- */
 const slugName = n => n.trim().toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').slice(0, 40);
 const fakeEmail = n => `${slugName(n)}@lightweight.app`;
-const pinPass = p => `lw-${p}-pin`;
+const namePass = n => `lw-${slugName(n)}-open`;
+let loginPhoto = null;
 function showLogin(msg){
   document.body.classList.add('signedout');
   $('#login').innerHTML = `<div class="lg-wrap"><div class="lg-logo">${LOGO}</div><div class="lg-t">LIGHTWEIGHT</div><div class="mu" style="margin-bottom:22px">Track your lifts, food, weight and sleep with your crew.</div>
+    <label class="lg-ph" id="lgPh">${loginPhoto ? `<img src="${loginPhoto.url}" alt="">` : `<span>+</span><small>Add photo</small>`}<input type="file" accept="image/*" id="lgFile"></label>
     <label class="f">Your name</label><input id="lgName" maxlength="24" autocomplete="nickname" placeholder="e.g. Kian">
-    <label class="f" style="margin-top:12px">4-digit PIN</label><input id="lgPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••">
-    <div class="note">New here? Pick any 4 numbers. Use the same name and PIN to get back in on any phone.</div>
+    <div class="note">Use the same name to get back in on any phone.</div>
     ${msg ? `<div class="lg-err">${esc(msg)}</div>` : ''}
     <button class="btn full" style="margin-top:16px" id="lgGo">Let’s go</button></div>`;
   $('#lgGo').onclick = doLogin;
-  $('#lgPin').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  $('#lgName').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  const onPick = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const blob = await shrink(f, 400); loginPhoto = {blob, url:URL.createObjectURL(blob)};
+    $('#lgPh').innerHTML = `<img src="${loginPhoto.url}" alt=""><input type="file" accept="image/*" id="lgFile">`;
+    $('#lgFile').addEventListener('change', onPick);
+  };
+  $('#lgFile').addEventListener('change', onPick);
 }
 async function doLogin(){
-  const name = ($('#lgName').value || '').trim(), pin = ($('#lgPin').value || '').trim();
+  const name = ($('#lgName').value || '').trim();
   if (!slugName(name)) return showLoginErr('Type your name.');
-  if (!/^\d{4}$/.test(pin)) return showLoginErr('The PIN has to be 4 numbers.');
   const b = $('#lgGo'); b.disabled = true; b.textContent = 'One sec…';
-  const email = fakeEmail(name), password = pinPass(pin);
+  const email = fakeEmail(name), password = namePass(name);
   let {data, error} = await sb.auth.signInWithPassword({email, password});
   let isNew = false;
   if (error && /invalid/i.test(error.message)) {
     const r = await sb.auth.signUp({email, password, options:{data:{name}}});
-    if (r.error && /already/i.test(r.error.message)) { b.disabled = false; b.textContent = 'Let’s go'; return showLoginErr('That name is already taken. If it’s you, check your PIN. If not, add a last initial (like “Kian A”).'); }
+    if (r.error && /already/i.test(r.error.message)) { b.disabled = false; b.textContent = 'Let’s go'; return showLoginErr('That name is already taken. Add a last initial, like “Kian A”.'); }
     data = r.data; error = r.error; isNew = true;
   }
   if (error || !data || !data.session) { b.disabled = false; b.textContent = 'Let’s go'; return showLoginErr(error && /confirm/i.test(error.message) ? 'Sign-up isn’t switched on yet. Ask Kian.' : 'Couldn’t connect. Check your internet and try again.'); }
   S.myName = name; S.isNew = isNew;
+  const photo = loginPhoto; loginPhoto = null;
   startApp(data.session);
+  if (isNew || photo) {
+    let avatar;
+    if (photo) { try { avatar = (await assetsApi.upload(photo.blob)).id; } catch(e) { toast('Couldn’t upload your photo — add it later in Crew.'); } }
+    const patch = {name}; if (avatar) patch.avatar = avatar;
+    if (isNew) Object.assign(patch, {shareLost:true, joined:Date.now()});
+    setTimeout(() => writeMe(patch), 1500);
+  }
 }
 function showLoginErr(t){ let el = $('.lg-err'); if (!el) { el = document.createElement('div'); el.className = 'lg-err'; $('#lgGo').before(el); } el.textContent = t; }
 
@@ -1033,7 +1051,7 @@ MODALS.settings = () => {
       <button class="btn2 full sec" data-a="copyExport">Copy backup</button>
       <div class="sec"><label class="f">Restore from a backup</label><textarea id="impIn" placeholder="Paste a backup here"></textarea><button class="btn2 full sec" data-a="doImport">Restore</button></div></div>
     <div class="note">${S.mode === 'cloud' ? `Signed in as <b>${esc(S.myName || 'you')}</b>. Your log is private to you; the crew only sees your crew card.` : 'Data is saved on this phone only.'}</div>
-    <button class="btn2 full sec" data-a="signOut">Sign out</button><div class="note">To get back in, use the same name and PIN.</div>`;
+    <button class="btn2 full sec" data-a="signOut">Sign out</button><div class="note">To get back in, type the same name.</div>`;
 };
 
 /* ---------- crew ---------- */
