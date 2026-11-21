@@ -202,6 +202,8 @@ body.signedout header,body.signedout main,body.signedout nav{display:none}
 .sbar i{display:block;height:100%;background:linear-gradient(90deg,#7d9a1f,var(--ac));border-radius:4px}
 html,body{overscroll-behavior-y:none}
 main{min-height:calc(100vh - 60px)}
+.mebtn{background:none;border:0;padding:0;display:block;border-radius:50%}
+.mebtn .av{width:40px;height:40px;border:2px solid var(--ac)}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -227,7 +229,7 @@ main{min-height:calc(100vh - 60px)}
 <header>
   <div class="top">
     <div class="brand"><span class="logo" id="logo"></span><div><div class="ttl">LIGHTWEIGHT</div><div class="sub" id="sync">Loading…</div></div></div>
-    <button class="icon" data-a="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <div class="row" style="gap:8px"><span id="meBtn"></span><button class="icon" data-a="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </div>
   <div class="dnav" id="dnav"></div>
   <div id="banner"></div>
@@ -510,6 +512,8 @@ function render(){
   if (typingInMain()) { S.dirty = true; return; }
   S.dirty = false;
   $('#sync').textContent = TABS.find(t => t[0] === S.tab)[1] + ' · ' + (S.mode === 'cloud' ? (S.loaded ? 'Synced' : 'Connecting…') : S.mode === 'local' ? 'This device only' : 'Loading…');
+  { const me = S.crew && S.crew.get(S.uid), mb = $('#meBtn');
+    if (mb) mb.innerHTML = me ? `<button class="mebtn" data-a="editMe" aria-label="Edit your profile">${avatar(me)}</button>` : ''; }
   const dn = $('#dnav');
   if (S.tab === 'prog' || S.tab === 'crew') dn.innerHTML = '';
   else {
@@ -1304,8 +1308,7 @@ VIEWS.crew = () => {
     : `<div class="empty">No photos yet. Post a gym pic, a meal or your progress.</div>`;
   h += `</div>`;
 
-  h += `<div class="card"><div class="ch"><div class="row">${avatar(me)}<div><b>${esc(me.name)}</b><div class="sm mu">Your crew profile</div></div></div><button class="btn2" data-a="editMe">Edit</button></div>
-    <div class="note">Your numbers update on their own as you log.</div></div>`;
+
   return h;
 };
 
