@@ -362,6 +362,7 @@ function startApp(session){
     for (const id in pending) { const j = pending[id]; if (j.op === 'set') m.set(id, j.data); else m.delete(id); }
     S.docs = m;
     const first = !S.loaded; S.loaded = true; clearTimeout(t); banner('');
+    if (first) setTimeout(mergeDayDupes, 600);
     if (first && S.pendingImport) setTimeout(() => openModal('importOld'), 300);
     scheduleRender(); scheduleCrewSync();
   }, err => { clearTimeout(t); S.loaded = true; banner('Couldn’t load your data. Check your connection and reopen the app.'); scheduleRender(); });
@@ -679,7 +680,7 @@ VIEWS.today = () => {
 
   h += `<div class="card"><div class="ch"><h3>Workout</h3>${wos.length ? '<span class="pill">Done</span>' : ''}</div>`;
   if (wos.length) h += `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${woLine(x) || 'No sets yet'}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>`;
-  h += `<button class="btn full" style="margin-top:8px" data-a="newWo">Start workout</button></div>`;
+  h += `<button class="btn full" style="margin-top:8px" data-a="newWo">${wos.length ? 'Continue workout' : 'Start workout'}</button></div>`;
 
   h += `<div class="card"><div class="ch"><h3>Daily check-in</h3></div>
     <label class="f">Steps</label><input type="number" inputmode="numeric" data-c="steps" placeholder="Target ${fmt(st.stepsTarget)}" value="${day.steps ? esc(day.steps) : ''}">
@@ -714,7 +715,7 @@ VIEWS.lift = () => {
   const d = S.date, all_ = workouts(), wos = all_.filter(x => x.date === d), last = all_[all_.length-1];
   let h = `<div class="card"><div class="ch"><h3>${d === today() ? 'Today' : fmtDate(d)}</h3></div>`;
   h += wos.length ? `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${(x.exercises||[]).map(e => esc(e.name)).join(', ') || 'No exercises yet'}</div><div class="sm">${woLine(x)}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>` : '<div class="empty">No workout logged for this day.</div>';
-  h += `<div class="grid2" style="margin-top:10px"><button class="btn" data-a="newWo">New workout</button>${last ? `<button class="btn2" data-a="repeatWo">Repeat last</button>` : '<span></span>'}</div>`;
+  h += `<div class="grid2" style="margin-top:10px"><button class="btn" data-a="newWo">${wos.length ? 'Continue workout' : 'New workout'}</button>${last ? `<button class="btn2" data-a="repeatWo">Repeat last</button>` : '<span></span>'}</div>`;
   if (last) h += `<div class="note">Last: ${esc(last.name || 'Workout')} on ${fmtDate(last.date)}</div>`;
   h += `</div>`;
 
@@ -854,7 +855,7 @@ function fig(p){
   return `<svg viewBox="0 0 40 64" aria-hidden="true">${g}</svg>`;
 }
 const toMin = t => { if (!t) return null; const [h,m] = t.split(':').map(Number); return h*60 + m; };
-function woMins(w){ const a = toMin(w.start), b = toMin(w.end); if (a == null || b == null) return null; let d = b - a; if (d <= 0) d += 1440; return d; }
+function woMins(w){ const a = toMin(w.start), b = toMin(w.end); if (a == null || b == null) return null; let d = b - a; if (d === 0) return null; if (d < 0) d += 1440; return d; }
 const durTxt = m => m == null ? '' : m >= 60 ? `${Math.floor(m/60)} h ${m%60 ? (m%60) + ' min' : ''}`.trim() : `${m} min`;
 const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const partTags = w => (w.parts||[]).length ? `<div class="ptags">${w.parts.map(p => `<span>${esc(PART_LBL[p] || p)}</span>`).join('')}</div>` : '';
@@ -1079,8 +1080,38 @@ function renderModal(){
 }
 
 /* workout */
+function dayWorkout(d){ return workouts().filter(w => w.date === d)[0] || null; }
+function mergeInto(base, others){
+  const w = JSON.parse(JSON.stringify(base));
+  w.parts = [...new Set([...(w.parts || []), ...others.flatMap(o => o.parts || [])])];
+  const filled = e => (e.sets || []).filter(x => num(x.r) > 0 || num(x.w) > 0).length;
+  const byName = new Map();
+  [w, ...others].flatMap(o => o.exercises || []).forEach(e => { const k = (e.name || '').toLowerCase(), cur = byName.get(k); if (!cur || filled(e) > filled(cur)) byName.set(k, e); });
+  w.exercises = [...byName.values()];
+  w.notes = [w.notes, ...others.map(o => o.notes)].filter(Boolean).join('\n');
+  const st = [w, ...others].map(o => o.start).filter(Boolean).sort(), en = [w, ...others].map(o => o.end).filter(Boolean).sort();
+  w.start = st[0] || ''; w.end = en[en.length - 1] || '';
+  w.name = autoName(w.parts) || w.name || others.map(o => o.name).find(Boolean) || '';
+  return w;
+}
+function mergeDayDupes(){
+  const groups = {};
+  workouts().forEach(w => (groups[w.date] = groups[w.date] || []).push(w));
+  let n = 0;
+  Object.values(groups).forEach(g => {
+    if (g.length < 2) return;
+    g.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const [base, ...rest] = g, {id, ...merged} = mergeInto(base, rest);
+    put(base.id, merged); rest.forEach(o => del(o.id)); n += rest.length;
+  });
+  if (n) toast(`Combined ${n} extra workout${n > 1 ? 's' : ''} so each day has one`);
+}
 function newWorkout(fromLast){
-  const last = workouts().slice(-1)[0];
+  const last = workouts().slice(-1)[0], existing = dayWorkout(S.date);
+  if (existing) {
+    if (fromLast && last && last.id !== existing.id) { const {id, ...m} = mergeInto(existing, [{...last, notes:'', start:'', end:''}]); put(existing.id, m); }
+    return openWorkout(existing.id);
+  }
   S.woId = 'wo_' + uid36();
   S.wo = {kind:'workout', date:S.date, ts:Date.now(), name:'', exercises:[], notes:'', parts:[], start:'', end:'', desc:''};
   if (fromLast && last) { S.wo.name = last.name || ''; S.wo.exercises = JSON.parse(JSON.stringify(last.exercises || [])); S.wo.parts = [...(last.parts || [])]; }
