@@ -996,9 +996,15 @@ window.addEventListener('appinstalled', () => { installEvt = null; toast('Lightw
 try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js'); } catch(e) {}
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
 function installBtn(){ return isStandalone() ? '' : `<button class="btn2 full" style="margin-top:12px" data-a="install">📲 Add Lightweight to your home screen</button>`; }
-MODALS.install = () => `<div class="sh"><b>Add to Home Screen</b><button class="btn2" data-a="closeModal">Close</button></div>
-    <div class="row" style="gap:12px;margin-bottom:14px"><div class="logo" style="width:56px;height:56px;border-radius:14px">${LOGO}</div><div>Apple only allows this from <b>Safari</b>.</div></div>
-    <ol class="steps"><li>If you opened this from another app, tap <b>Open in Safari</b> first</li><li>Tap Safari’s <b>Share</b> button <span class="shr">⬆︎</span> at the bottom</li><li>Tap <b>Add to Home Screen</b></li></ol>`;
+MODALS.install = () => {
+  const chrome = /CriOS/.test(navigator.userAgent);
+  const steps = chrome
+    ? ['Tap the <b>Share</b> button <span class="shr">⬆︎</span> in the address bar', 'Scroll down, tap <b>Add to Home Screen</b>', 'Tap <b>Add</b>']
+    : ['Tap the <b>Share</b> button <span class="shr">⬆︎</span>', 'Scroll down, tap <b>Add to Home Screen</b>', 'Tap <b>Add</b>'];
+  return `<div class="sh"><b>Add to Home Screen</b><button class="btn2" data-a="closeModal">Close</button></div>
+    <div class="row" style="gap:12px;margin-bottom:14px"><div class="logo" style="width:56px;height:56px;border-radius:14px">${LOGO}</div><div>Works in <b>Safari</b> or <b>Chrome</b>. If you opened this from WhatsApp or another app, open it in Safari or Chrome first.</div></div>
+    <ol class="steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>`;
+};
 async function doInstall(){
   if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch(e) {} installEvt = null; return; }
   S.modal = 'install'; renderModal();
