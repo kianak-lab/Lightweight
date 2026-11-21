@@ -30,7 +30,7 @@ header{position:sticky;top:0;z-index:5;background:rgba(14,16,19,.94);backdrop-fi
 .dnav .dlabel{flex:1;font-size:15px;font-weight:600}
 #banner{max-width:640px;margin:8px auto 0;font-size:12.5px;color:#ffd7a8;background:#2b2116;border:1px solid #4a3620;border-radius:10px;padding:7px 10px;display:none}
 main{padding:12px 12px calc(92px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#12151a;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav{position:fixed;bottom:calc(-1 * var(--navfix, 0px));left:0;right:0;display:flex;background:#12151a;border-top:1px solid var(--line);padding-bottom:max(4px, calc(env(safe-area-inset-bottom) - 10px));z-index:6}
 nav button{flex:1;background:none;border:0;color:var(--mu);padding:9px 0 8px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px}
 nav button.on{color:var(--ac)}
 nav svg{width:22px;height:22px}
@@ -283,6 +283,18 @@ function flushAll(){ for (const id in timers) { clearTimeout(timers[id]); flush(
 window.addEventListener('pagehide', flushAll);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAll(); });
 
+function fixNav(){
+  // iPhone home-screen apps can report a shorter screen than they show, leaving a gap under the bar
+  let gap = 0;
+  try {
+    const sa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    const portrait = window.innerHeight > window.innerWidth;
+    const full = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+    if (sa && /iPhone|iPad|iPod/i.test(navigator.userAgent)) { const g = full - window.innerHeight; if (g > 0 && g < 120) gap = g; }
+  } catch(e) {}
+  document.documentElement.style.setProperty('--navfix', gap + 'px');
+}
+fixNav(); window.addEventListener('resize', fixNav); window.addEventListener('orientationchange', () => setTimeout(fixNav, 300));
 async function init(){
   readImportHash();
   renderNav();
