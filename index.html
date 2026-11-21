@@ -751,14 +751,16 @@ VIEWS.body = () => {
   const naps = napsOf(d), nm = napMin(d);
   h += `<div class="card"><div class="ch"><h3>Naps</h3><span class="mu">${nm ? `${minTxt(nm)} · total sleep ${round(sleepTotal(d),1)} hrs` : 'Counts toward your sleep'}</span></div>
     <div class="grid3">${[[20,'20 min'],[30,'30 min'],[45,'45 min'],[60,'1 hr'],[90,'1½ hrs'],[120,'2 hrs']].map(([m,l]) => `<button class="chip" data-a="nap" data-v="${m}">+ ${l}</button>`).join('')}</div>
-    <div class="sec" style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:6px;align-items:center"><input type="time" id="napS" aria-label="Nap start"><span class="mu">to</span><input type="time" id="napE" aria-label="Nap end"><button class="btn2" data-a="napTimes">Add</button></div>
+    <div class="grid2 sec"><div><label class="f">Nap started</label><input type="time" id="napS"></div><div><label class="f">Woke up</label><input type="time" id="napE"></div></div><button class="btn2 full" style="margin-top:8px" data-a="napTimes">Add nap</button>
     ${naps.length ? `<div class="list sec">${naps.map((n, i) => `<div class="it"><div class="main"><div class="nm">${minTxt(num(n.m))} nap</div>${n.start ? `<div class="sm">from ${esc(n.start)}</div>` : ''}</div><button class="x" data-a="rmNap" data-i="${i}">Remove</button></div>`).join('')}</div>` : ''}</div>`;
 
   const ws = all('weight').filter(x => num(x.lbs) > 0).sort(byDate).reverse().slice(0, 14);
   h += `<div class="card"><div class="ch"><h3>Recent weigh-ins</h3></div>${ws.length ? `<div class="list">${ws.map((x, i) => { const prev = ws[i+1]; const c = prev ? round(num(x.lbs) - num(prev.lbs), 1) : null; return `<div class="it"><div class="main"><div class="nm">${round(num(x.lbs),1)} lb${x.waist ? ` · ${esc(x.waist)}" waist` : ''}</div><div class="sm">${fmtDate(x.date)}${c !== null ? ` · ${c > 0 ? '+' : ''}${c}` : ''}</div></div><button class="x" data-a="delDoc" data-id="${esc(x.id)}">Remove</button></div>`; }).join('')}</div>` : '<div class="empty">No weigh-ins yet.</div>'}</div>`;
 
-  const ss = all('sleep').sort(byDate).reverse().slice(0, 10);
-  h += `<div class="card"><div class="ch"><h3>Recent sleep</h3></div>${ss.length ? `<div class="list">${ss.map(x => `<div class="it"><div class="main"><div class="nm">${round(num(x.hours),1)} hrs${napMin(x.date) ? ` + ${minTxt(napMin(x.date))} nap` : ''} · ${'★'.repeat(num(x.quality))}</div><div class="sm">${fmtDate(x.date)} · ${esc(x.bed)} → ${esc(x.wake)}</div></div><button class="x" data-a="delDoc" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>` : '<div class="empty">No sleep logged yet.</div>'}</div>`;
+  const sdays = [...new Set([...all('sleep').map(x => x.date), ...all('daily').filter(x => (x.naps || []).length).map(x => x.date)])].sort().reverse().slice(0, 10);
+  h += `<div class="card"><div class="ch"><h3>Recent sleep</h3></div>${sdays.length ? `<div class="list">${sdays.map(dd => { const x = S.docs.get('s_'+dd), nm = napMin(dd);
+    const top = x ? `${round(num(x.hours),1)} hrs night${nm ? ` + ${minTxt(nm)} nap${napsOf(dd).length > 1 ? 's' : ''}` : ''}` : `${minTxt(nm)} nap${napsOf(dd).length > 1 ? 's' : ''}`;
+    return `<div class="it"><div class="main"><div class="nm">${top}${x && num(x.quality) ? ` · ${'★'.repeat(num(x.quality))}` : ''}</div><div class="sm">${fmtDate(dd)}${x ? ` · ${esc(x.bed)} → ${esc(x.wake)}` : ''} · total ${round(sleepTotal(dd),1)} hrs</div></div>${x ? `<button class="x" data-a="delDoc" data-id="s_${esc(dd)}">Remove</button>` : ''}</div>`; }).join('')}</div>` : '<div class="empty">No sleep logged yet.</div>'}</div>`;
   return h;
 };
 
