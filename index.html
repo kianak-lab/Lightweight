@@ -167,6 +167,41 @@ body.signedout header,body.signedout main,body.signedout nav{display:none}
 .part svg{width:34px;height:52px}
 .part.on{border-color:var(--ac);background:#232b12}
 .part.on span{color:var(--ac);font-weight:700}
+.sb{background:radial-gradient(120% 80% at 50% 0%,#24301a 0%,#171a20 55%);border-color:#2f3a22}
+.sbh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.sbk{font-size:11.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ac);font-weight:800}
+.sbt{font-size:22px;font-weight:850;letter-spacing:-.3px}
+.sbn{font-size:12px;color:var(--mu);background:#0e1013aa;border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.seg{display:flex;gap:4px;background:#0e1013;border:1px solid var(--line);border-radius:12px;padding:3px;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.seg button{flex:1 0 auto;background:none;border:0;color:var(--mu);font-size:12.5px;font-weight:650;padding:8px 10px;border-radius:9px;white-space:nowrap}
+.seg button.on{background:var(--ac);color:#12160a}
+.podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:8px;margin-top:22px}
+.pod{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;position:relative}
+.pod.empty{visibility:hidden}
+.crown{font-size:24px;margin-bottom:-4px;filter:drop-shadow(0 2px 6px #ffd54a88)}
+.pav{position:relative}
+.pav .av.lg{width:58px;height:58px;font-size:22px;border:2px solid #3a4150}
+.p1 .pav .av.lg{width:78px;height:78px;font-size:28px;border:3px solid #ffd54a;box-shadow:0 0 22px #ffd54a55}
+.p2 .pav .av.lg{border-color:#cfd8dc}
+.p3 .pav .av.lg{border-color:#e0a26e}
+.pbadge{position:absolute;bottom:-4px;right:-4px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:850;color:#12160a;background:#cfd8dc;border:2px solid #171a20}
+.p1 .pbadge{background:#ffd54a}.p3 .pbadge{background:#e0a26e}
+.pname{font-weight:750;font-size:14px;margin-top:8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pval{font-size:24px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1.1}
+.p1 .pval{font-size:32px;color:var(--ac)}
+.pval small{font-size:11px;color:var(--mu);font-weight:600;margin-left:3px}
+.pfire{font-size:12px;color:#ffb067;margin-top:2px}
+.pstep{width:100%;margin-top:8px;border-radius:10px 10px 0 0;background:linear-gradient(180deg,#2a3140,#1c2029);color:#5d6678;font-weight:900;font-size:18px;display:grid;place-items:center}
+.p1 .pstep{height:64px;background:linear-gradient(180deg,#3f4d17,#232b12);color:var(--ac)}
+.p2 .pstep{height:44px}.p3 .pstep{height:30px}
+.you{font-size:10.5px;background:#232b12;color:var(--ac);border-radius:999px;padding:1px 6px;vertical-align:middle;font-weight:700}
+.fire{font-size:12px;color:#ffb067}
+.sbl{margin-top:14px;border-top:1px solid var(--line);padding-top:4px}
+.sbar{height:5px;background:var(--card2);border-radius:4px;margin:5px 0 3px;overflow:hidden}
+.sbar i{display:block;height:100%;background:linear-gradient(90deg,#7d9a1f,var(--ac));border-radius:4px}
+html,body{overscroll-behavior-y:none}
+main{min-height:calc(100vh - 60px)}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -1233,13 +1268,21 @@ VIEWS.crew = () => {
   }
   const k = S.crewMetric, unit = METRICS.find(x => x[0] === k)[2];
   const ranked = members.map(m => ({m, v:mv(m, k)})).sort((a,b) => (b.v ?? -1e9) - (a.v ?? -1e9));
-  let h = `<div class="card"><div class="ch"><h3>Scoreboard</h3><span class="mu">${members.length} in the crew</span></div>
-    <div class="chips" style="margin-bottom:6px">${METRICS.map(([key,l]) => `<button class="chip ${k===key?'on':''}" data-a="metric" data-v="${key}">${l}</button>`).join('')}</div>
-    <div class="list">${ranked.map((r, i) => {
-      const m = r.m, fresh = m.day === today();
-      const sub = [fresh && m.cal ? `${fmt(m.cal)} cal today` : 'No food logged today', m.last && m.last.date === today() ? `trained: ${m.last.name}` : m.last ? `last trained ${fmtDate(m.last.date, {month:'short', day:'numeric'})}` : ''].filter(Boolean).join(' · ');
-      return `<div class="it tap" data-a="member" data-id="${esc(m.id)}"><span class="rank ${i<3 && r.v ? 'r'+(i+1) : ''}">${i+1}</span>${avatar(m)}<div class="main"><div class="nm"><b>${esc(m.name || 'Someone')}</b>${m.id === S.uid ? ' <span class="mu">(you)</span>' : ''}</div><div class="sm">${esc(sub)}</div></div><div class="val">${r.v == null ? '—' : round(r.v,1)}<small>${unit}</small></div></div>`;
-    }).join('')}</div></div>`;
+  const lead = ranked.length && ranked[0].v ? ranked[0].v : 0;
+  const sub = m => { const fresh = m.day === today(); return [m.last && m.last.date === today() ? `🏋️ ${m.last.name}` : m.last ? `last trained ${fmtDate(m.last.date, {month:'short', day:'numeric'})}` : 'no workouts yet', fresh && m.cal ? `${fmt(m.cal)} cal` : ''].filter(Boolean).join(' · '); };
+  const val = v => v == null ? '—' : round(v, 1);
+  const pod = (r, place) => r ? `<div class="pod p${place} tap" data-a="member" data-id="${esc(r.m.id)}">
+      ${place === 1 && r.v ? '<div class="crown">👑</div>' : ''}<div class="pav">${avatar(r.m, 'lg')}<span class="pbadge">${place}</span></div>
+      <div class="pname">${esc(r.m.name || 'Someone')}${r.m.id === S.uid ? ' <span class="you">you</span>' : ''}</div>
+      <div class="pval">${val(r.v)}<small>${unit}</small></div>
+      ${num(r.m.streak) >= 2 && mv(r.m,'streak') ? `<div class="pfire">🔥 ${mv(r.m,'streak')}</div>` : ''}
+      <div class="pstep">${place}</div></div>` : '<div class="pod empty"></div>';
+  let h = `<div class="card sb"><div class="sbh"><div><div class="sbk">Crew scoreboard</div><div class="sbt">${METRICS.find(x => x[0] === k)[1]}</div></div><span class="sbn">${members.length} in crew</span></div>
+    <div class="seg">${METRICS.map(([key,l]) => `<button class="${k===key?'on':''}" data-a="metric" data-v="${key}">${l.replace(' this ', ' · ').replace(' today','')}</button>`).join('')}</div>
+    <div class="podium">${pod(ranked[1], 2)}${pod(ranked[0], 1)}${pod(ranked[2], 3)}</div>
+    ${ranked.length > 3 ? `<div class="list sbl">${ranked.slice(3).map((r, i) => `<div class="it tap" data-a="member" data-id="${esc(r.m.id)}"><span class="rank">${i + 4}</span>${avatar(r.m)}<div class="main"><div class="nm"><b>${esc(r.m.name || 'Someone')}</b>${r.m.id === S.uid ? ' <span class="you">you</span>' : ''}${mv(r.m,'streak') >= 2 ? ` <span class="fire">🔥${mv(r.m,'streak')}</span>` : ''}</div><div class="sbar"><i style="width:${lead ? clamp((r.v || 0) / lead * 100, 3, 100) : 3}%"></i></div><div class="sm">${esc(sub(r.m))}</div></div><div class="val">${val(r.v)}<small>${unit}</small></div></div>`).join('')}</div>` : ''}
+    ${ranked.length === 1 ? `<div class="note" style="text-align:center">Send your link to the crew to fill the podium.</div>` : ''}
+    ${ranked[0] ? `<div class="note" style="text-align:center">${esc(sub(ranked[0].m)) ? `Leader: ${esc(ranked[0].m.name || '')} — ${esc(sub(ranked[0].m))}` : ''}</div>` : ''}</div>`;
 
   const feed = [...S.pics.values()].flat().sort((a,b) => (b.ts||0) - (a.ts||0)).slice(0, 30);
   h += `<div class="card"><div class="ch"><h3>Photos</h3>${S.assets ? `<label class="btn2 filebtn">+ Add photo<input type="file" accept="image/*" data-file="pic"></label>` : ''}</div>`;
