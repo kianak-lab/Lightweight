@@ -542,7 +542,7 @@ function datesWithLogs(){
   const s = new Set();
   for (const [, d] of S.docs) {
     if (!d || !d.date) continue;
-    if (d.kind === 'daily' && !(d.water || d.steps || d.energy || d.mood || d.notes)) continue;
+    if (d.kind === 'daily' && !(d.water || d.steps || d.energy || d.mood || d.notes || (d.naps || []).length)) continue;
     if (['weight','food','sleep','workout','daily'].includes(d.kind)) s.add(d.date);
   }
   return s;
@@ -588,6 +588,14 @@ function weeklyRate(ws){
   let nu = 0, de = 0; p.forEach(q => { nu += (q.x-mx)*(q.y-my); de += (q.x-mx)**2; });
   return de ? nu/de*7 : null;
 }
+
+/* ---------- naps ---------- */
+const napsOf = d => ((S.docs.get('d_'+d) || {}).naps || []);
+const napMin = d => napsOf(d).reduce((a, n) => a + num(n.m), 0);
+const nightHrs = d => { const s = S.docs.get('s_'+d); return s ? num(s.hours) : 0; };
+const sleepTotal = d => nightHrs(d) + napMin(d) / 60;
+const minTxt = m => m >= 60 ? `${Math.floor(m/60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
+function addNap(m, start){ const d = dayDoc(S.date); d.naps = [...(d.naps || []), {m:Math.round(m), start:start || '', ts:Date.now()}]; put('d_'+S.date, d); toast(`Nap logged — ${minTxt(Math.round(m))}`); }
 
 /* ---------- charts ---------- */
 function lineChart(series, {goal=null, h=170}={}){
@@ -655,8 +663,9 @@ VIEWS.today = () => {
     <div class="cups">${Array.from({length: Math.max(st.waterTarget, water)}, (_, i) => `<div class="cup ${i < water ? 'full' : ''}"></div>`).join('')}</div>
     <div class="row"><button class="btn2" data-a="water" data-v="-1" aria-label="Remove a glass">−</button><button class="btn grow" data-a="water" data-v="1">+ Glass</button></div></div>`;
 
+  { const nm = napMin(d), tot = sleepTotal(d);
   h += `<div class="card tap" data-a="tab" data-v="body"><div class="ch"><h3>Sleep</h3>${sl ? `<span class="mu">${'★'.repeat(num(sl.quality))}${'☆'.repeat(5 - num(sl.quality))}</span>` : ''}</div>
-    ${sl ? `<div class="big">${round(num(sl.hours),1)}<small> hrs · ${esc(sl.bed)} → ${esc(sl.wake)}</small></div>${bar(num(sl.hours), st.sleepTarget, 'var(--pur)')}` : `<div class="empty">Tap to log last night’s sleep.</div>`}</div>`;
+    ${tot ? `<div class="big">${round(tot,1)}<small> hrs${sl ? ` · ${esc(sl.bed)} → ${esc(sl.wake)}` : ''}${nm ? ` · incl. ${minTxt(nm)} nap${napsOf(d).length > 1 ? 's' : ''}` : ''}</small></div>${bar(tot, st.sleepTarget, 'var(--pur)')}` : `<div class="empty">Tap to log last night’s sleep or a nap.</div>`}</div>`; }
 
   h += `<div class="card"><div class="ch"><h3>Workout</h3>${wos.length ? '<span class="pill">Done</span>' : ''}</div>`;
   if (wos.length) h += `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${woLine(x) || 'No sets yet'}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>`;
@@ -725,12 +734,17 @@ VIEWS.body = () => {
     <div class="sec"><label class="f">How well did you sleep?</label><div class="scale" id="sqRow">${[1,2,3,4,5].map(v => `<button class="chip ${S.sq===v?'on':''}" data-a="sq" data-v="${v}">${v}</button>`).join('')}</div></div>
     <button class="btn full" style="margin-top:12px" data-a="saveSleep">${sl ? 'Update' : 'Save'} sleep</button>
     ${sl ? `<div class="note">Logged ${round(num(sl.hours),1)} hrs (target ${st.sleepTarget}).</div>` : ''}</div>`;
+  const naps = napsOf(d), nm = napMin(d);
+  h += `<div class="card"><div class="ch"><h3>Naps</h3><span class="mu">${nm ? `${minTxt(nm)} · total sleep ${round(sleepTotal(d),1)} hrs` : 'Counts toward your sleep'}</span></div>
+    <div class="grid3">${[[20,'20 min'],[30,'30 min'],[45,'45 min'],[60,'1 hr'],[90,'1½ hrs'],[120,'2 hrs']].map(([m,l]) => `<button class="chip" data-a="nap" data-v="${m}">+ ${l}</button>`).join('')}</div>
+    <div class="row sec"><input type="time" id="napS" aria-label="Nap start"><span class="mu">to</span><input type="time" id="napE" aria-label="Nap end"><button class="btn2" data-a="napTimes">Add</button></div>
+    ${naps.length ? `<div class="list sec">${naps.map((n, i) => `<div class="it"><div class="main"><div class="nm">${minTxt(num(n.m))} nap</div>${n.start ? `<div class="sm">from ${esc(n.start)}</div>` : ''}</div><button class="x" data-a="rmNap" data-i="${i}">Remove</button></div>`).join('')}</div>` : ''}</div>`;
 
   const ws = all('weight').filter(x => num(x.lbs) > 0).sort(byDate).reverse().slice(0, 14);
   h += `<div class="card"><div class="ch"><h3>Recent weigh-ins</h3></div>${ws.length ? `<div class="list">${ws.map((x, i) => { const prev = ws[i+1]; const c = prev ? round(num(x.lbs) - num(prev.lbs), 1) : null; return `<div class="it"><div class="main"><div class="nm">${round(num(x.lbs),1)} lb${x.waist ? ` · ${esc(x.waist)}" waist` : ''}</div><div class="sm">${fmtDate(x.date)}${c !== null ? ` · ${c > 0 ? '+' : ''}${c}` : ''}</div></div><button class="x" data-a="delDoc" data-id="${esc(x.id)}">Remove</button></div>`; }).join('')}</div>` : '<div class="empty">No weigh-ins yet.</div>'}</div>`;
 
   const ss = all('sleep').sort(byDate).reverse().slice(0, 10);
-  h += `<div class="card"><div class="ch"><h3>Recent sleep</h3></div>${ss.length ? `<div class="list">${ss.map(x => `<div class="it"><div class="main"><div class="nm">${round(num(x.hours),1)} hrs · ${'★'.repeat(num(x.quality))}</div><div class="sm">${fmtDate(x.date)} · ${esc(x.bed)} → ${esc(x.wake)}</div></div><button class="x" data-a="delDoc" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>` : '<div class="empty">No sleep logged yet.</div>'}</div>`;
+  h += `<div class="card"><div class="ch"><h3>Recent sleep</h3></div>${ss.length ? `<div class="list">${ss.map(x => `<div class="it"><div class="main"><div class="nm">${round(num(x.hours),1)} hrs${napMin(x.date) ? ` + ${minTxt(napMin(x.date))} nap` : ''} · ${'★'.repeat(num(x.quality))}</div><div class="sm">${fmtDate(x.date)} · ${esc(x.bed)} → ${esc(x.wake)}</div></div><button class="x" data-a="delDoc" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>` : '<div class="empty">No sleep logged yet.</div>'}</div>`;
   return h;
 };
 
@@ -772,11 +786,11 @@ VIEWS.prog = () => {
     <div class="note">Average ${logged.length ? fmt(avgCal) : '—'} cal · ${logged.length ? fmt(avgP) : '—'} g protein on ${logged.length} logged day${logged.length===1?'':'s'}</div></div>`;
 
   // sleep
-  const sleeps = days14.map(d => { const s = S.docs.get('s_'+d); return s ? num(s.hours) : 0; });
+  const sleeps = days14.map(d => sleepTotal(d));
   const sl = sleeps.filter(v => v > 0);
   h += `<div class="card"><div class="ch"><h3>Sleep</h3><span class="mu">Last 14 days</span></div>
     ${barChart(days14.map((d,i) => ({label:dl(d), v:sleeps[i]})), {target:st.sleepTarget, color:'var(--pur)', dec:1})}
-    <div class="note">Average ${sl.length ? round(sl.reduce((a,b)=>a+b,0)/sl.length, 1) + ' hrs' : '—'} on ${sl.length} logged night${sl.length===1?'':'s'}</div></div>`;
+    <div class="note">Average ${sl.length ? round(sl.reduce((a,b)=>a+b,0)/sl.length, 1) + ' hrs' : '—'} on ${sl.length} logged day${sl.length===1?'':'s'}, naps included</div></div>`;
 
   // strength
   const all_ = workouts();
@@ -939,7 +953,7 @@ function insightData(){
     weighIns:ws.filter(w => w.date >= addDays(t, -60)).map(w => [w.date, num(w.lbs), w.waist || null]),
     weightChangePerWeekLb: rate == null ? null : round(rate, 2),
     last14Days:days.map(d => { const f = sumFood(foods.filter(x => x.date === d)), s = S.docs.get('s_'+d), c = S.docs.get('d_'+d) || {};
-      return {date:d, cal:Math.round(f.cal) || null, protein:Math.round(f.p) || null, carbs:Math.round(f.c) || null, fat:Math.round(f.f) || null, sleepHrs:s ? num(s.hours) : null, sleepQuality:s && s.quality ? s.quality : null, water:c.water || null, steps:c.steps || null, energy:c.energy || null, mood:c.mood || null}; }),
+      return {date:d, cal:Math.round(f.cal) || null, protein:Math.round(f.p) || null, carbs:Math.round(f.c) || null, fat:Math.round(f.f) || null, sleepHrs:s ? num(s.hours) : null, napMinutes:napMin(d) || null, sleepQuality:s && s.quality ? s.quality : null, water:c.water || null, steps:c.steps || null, energy:c.energy || null, mood:c.mood || null}; }),
     foodsLast7Days:foods.filter(f => f.date >= addDays(t, -6)).slice(-60).map(f => `${f.date.slice(5)} ${f.meal || ''}: ${String(f.name).slice(0,40)} (${Math.round(num(f.cal))} cal, ${Math.round(num(f.p))}g protein)`),
     workoutsLast30Days:workouts().filter(w => w.date >= d30).map(w => ({date:w.date, name:w.name || '', bodyParts:w.parts || [], minutes:woMins(w), exercises:(w.exercises||[]).map(e => `${e.name}: ${setsStr((e.sets||[]).filter(s => num(s.r) > 0)) || 'no sets'}`), notes:(w.notes || '').slice(0,150)})),
     bestLiftsEst1RM:Object.fromEntries([...new Set(workouts().flatMap(w => (w.exercises||[]).map(e => e.name)))].filter(n => n && !CARDIO.has(n)).map(n => [n, bestFor(n).best]).filter(x => x[1]).map(([n, b]) => [n, Math.round(b.e)])),
@@ -1217,7 +1231,7 @@ function crewSummary(me){
     lost: (me.shareLost !== false && cur) ? round(st.startWeight - num(cur.lbs), 1) : null,
     cal:Math.round(tot.cal), p:Math.round(tot.p),
     foods:foods.slice(0,15).map(f => ({n:String(f.name || '').slice(0,50), c:Math.round(num(f.cal)), m:f.meal || ''})),
-    last, lifts, sleep: sl ? round(num(sl.hours),1) : null, water:num((S.docs.get('d_'+t) || {}).water)};
+    last, lifts, sleep: sleepTotal(t) ? round(sleepTotal(t),1) : null, water:num((S.docs.get('d_'+t) || {}).water)};
 }
 let crewT = null, lastCrew = '', crewChain = Promise.resolve();
 function scheduleCrewSync(){ if (!S.db || !S.uid) return; clearTimeout(crewT); crewT = setTimeout(syncCrew, 2500); }
@@ -1343,6 +1357,9 @@ const A = {
   water: a => { const d = dayDoc(S.date); d.water = Math.max(0, num(d.water) + (+a.dataset.v)); put('d_'+S.date, d, 700); },
   rate: a => { const d = dayDoc(S.date), k = a.dataset.k, v = +a.dataset.v; d[k] = num(d[k]) === v ? 0 : v; put('d_'+S.date, d); },
   sq: a => { S.sq = +a.dataset.v; document.querySelectorAll('#sqRow .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === S.sq)); },
+  nap: a => addNap(+a.dataset.v),
+  napTimes: () => { const a = toMin($('#napS').value), b = toMin($('#napE').value); if (a == null || b == null) return toast('Pick when the nap started and ended.'); let m = b - a; if (m <= 0) m += 1440; if (m > 300) return toast('That’s over 5 hours — log it as sleep instead.'); addNap(m, $('#napS').value); },
+  rmNap: a => { const d = dayDoc(S.date); d.naps = (d.naps || []).filter((_, i) => i !== +a.dataset.i); put('d_'+S.date, d); },
   saveSleep: () => {
     const bed = $('#sBed').value, wake = $('#sWake').value; if (!bed || !wake) return toast('Enter both times.');
     const [bh,bm] = bed.split(':').map(Number), [wh,wm] = wake.split(':').map(Number);
