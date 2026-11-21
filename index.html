@@ -959,20 +959,15 @@ async function doImportOld(){
 const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+window.addEventListener('appinstalled', () => { installEvt = null; toast('Lightweight is on your home screen'); });
+try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js'); } catch(e) {}
+const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
 function installBtn(){ return isStandalone() ? '' : `<button class="btn2 full" style="margin-top:12px" data-a="install">📲 Add Lightweight to your home screen</button>`; }
-MODALS.install = () => {
-  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent), android = /Android/i.test(navigator.userAgent);
-  const steps = ios ? ['Open this page in <b>Safari</b> (or Chrome)', 'Tap the <b>Share</b> button <span class="shr">⬆︎</span>', 'Scroll down and tap <b>Add to Home Screen</b>', 'Tap <b>Add</b>']
-    : android ? ['Tap the <b>⋮</b> menu at the top right', 'Tap <b>Add to Home screen</b> (or <b>Install app</b>)', 'Tap <b>Add</b>']
-    : ['In Chrome or Edge, click the <b>install icon</b> at the right end of the address bar', 'Or open the <b>⋮</b> menu → <b>Cast, save and share</b> → <b>Install page as app</b>', 'Click <b>Install</b>'];
-  return `<div class="sh"><b>Get the app icon</b><button class="btn2" data-a="closeModal">Done</button></div>
-    <div class="row" style="gap:12px;margin-bottom:14px"><div class="logo" style="width:56px;height:56px;border-radius:14px">${LOGO}</div><div><b>Lightweight</b><div class="mu">Opens full screen, like a real app</div></div></div>
-    <ol class="steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>`;
-};
+MODALS.install = () => `<div class="sh"><b>Almost there</b><button class="btn2" data-a="closeModal">Close</button></div>
+    <div class="row" style="gap:12px;margin-bottom:12px"><div class="logo" style="width:56px;height:56px;border-radius:14px">${LOGO}</div><div>Apple only lets you add it from the <b>Share</b> button <span class="shr">⬆︎</span>, then <b>Add to Home Screen</b>.</div></div>`;
 async function doInstall(){
   if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch(e) {} installEvt = null; return; }
-  if (document.body.classList.contains('signedout')) { const m = $('#modal'); S.modal = 'install'; renderModal(); return; }
-  openModal('install');
+  S.modal = 'install'; renderModal();
 }
 
 function renderModal(){
