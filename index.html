@@ -1331,15 +1331,20 @@ VIEWS.crew = () => {
   const k = S.crewMetric, unit = METRICS.find(x => x[0] === k)[2];
   const ranked = members.map(m => ({m, v:mv(m, k)})).sort((a,b) => (b.v ?? -1e9) - (a.v ?? -1e9));
   const lead = ranked.length && ranked[0].v ? ranked[0].v : 0;
-  const sub = m => { const fresh = m.day === today(); return [m.last && m.last.date === today() ? `🏋️ ${m.last.name}` : m.last ? `last trained ${fmtDate(m.last.date, {month:'short', day:'numeric'})}` : 'no workouts yet', fresh && m.cal ? `${fmt(m.cal)} cal` : ''].filter(Boolean).join(' · '); };
+  const isNewM = m => m.joined && Date.now() - num(m.joined) < 7*DAY && m.id !== S.uid;
+  const seen = m => m.updated ? (ymd(new Date(num(m.updated))) === today() ? 'active today' : `active ${ago(num(m.updated))}`) : '';
+  const activeN = members.filter(m => m.updated && ymd(new Date(num(m.updated))) === today()).length;
+  const sub = m => { const fresh = m.day === today(); return [m.last && m.last.date === today() ? `🏋️ ${m.last.name}` : m.last ? `last trained ${fmtDate(m.last.date, {month:'short', day:'numeric'})}` : 'no workouts yet', fresh && m.cal ? `${fmt(m.cal)} cal` : '', seen(m)].filter(Boolean).join(' · '); };
+  const newbies = members.filter(isNewM).sort((a, b) => num(b.joined) - num(a.joined));
   const val = v => v == null ? '—' : round(v, 1);
   const pod = (r, place) => r ? `<div class="pod p${place} tap" data-a="member" data-id="${esc(r.m.id)}">
       ${place === 1 && r.v ? '<div class="crown">👑</div>' : ''}<div class="pav">${avatar(r.m, 'lg')}<span class="pbadge">${place}</span></div>
-      <div class="pname">${esc(r.m.name || 'Someone')}${r.m.id === S.uid ? ' <span class="you">you</span>' : ''}</div>
+      <div class="pname">${esc(r.m.name || 'Someone')}${r.m.id === S.uid ? ' <span class="you">you</span>' : isNewM(r.m) ? ' <span class="you">new</span>' : ''}</div>
       <div class="pval">${val(r.v)}<small>${unit}</small></div>
       ${num(r.m.streak) >= 2 && mv(r.m,'streak') ? `<div class="pfire">🔥 ${mv(r.m,'streak')}</div>` : ''}
       <div class="pstep">${place}</div></div>` : '<div class="pod empty"></div>';
-  let h = `<div class="card sb"><div class="sbh"><div><div class="sbk">Crew scoreboard</div><div class="sbt">${METRICS.find(x => x[0] === k)[1]}</div></div><span class="sbn">${members.length} in crew</span></div>
+  let h = newbies.length ? `<div class="card newc"><div class="ch"><h3>🆕 New in the crew</h3><span class="mu">last 7 days</span></div><div class="list">${newbies.map(m => `<div class="it tap" data-a="member" data-id="${esc(m.id)}">${avatar(m)}<div class="main"><div class="nm"><b>${esc(m.name || 'Someone')}</b></div><div class="sm">joined ${ago(num(m.joined))}${seen(m) ? ' · ' + seen(m) : ''}</div></div><span class="mu">›</span></div>`).join('')}</div></div>` : '';
+  h += `<div class="card sb"><div class="sbh"><div><div class="sbk">Crew scoreboard</div><div class="sbt">${METRICS.find(x => x[0] === k)[1]}</div></div><span class="sbn">${members.length} in crew · ${activeN} active today</span></div>
     <div class="seg">${METRICS.map(([key,l]) => `<button class="${k===key?'on':''}" data-a="metric" data-v="${key}">${l.replace(' this ', ' · ').replace(' today','')}</button>`).join('')}</div>
     <div class="podium">${pod(ranked[1], 2)}${pod(ranked[0], 1)}${pod(ranked[2], 3)}</div>
     ${ranked.length > 3 ? `<div class="list sbl">${ranked.slice(3).map((r, i) => `<div class="it tap" data-a="member" data-id="${esc(r.m.id)}"><span class="rank">${i + 4}</span>${avatar(r.m)}<div class="main"><div class="nm"><b>${esc(r.m.name || 'Someone')}</b>${r.m.id === S.uid ? ' <span class="you">you</span>' : ''}${mv(r.m,'streak') >= 2 ? ` <span class="fire">🔥${mv(r.m,'streak')}</span>` : ''}</div><div class="sbar"><i style="width:${lead ? clamp((r.v || 0) / lead * 100, 3, 100) : 3}%"></i></div><div class="sm">${esc(sub(r.m))}</div></div><div class="val">${val(r.v)}<small>${unit}</small></div></div>`).join('')}</div>` : ''}
