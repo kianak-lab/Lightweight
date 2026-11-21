@@ -156,6 +156,7 @@ body.signedout header,body.signedout main,body.signedout nav{display:none}
 .lg-logo{width:88px;height:88px;border-radius:22px;overflow:hidden;margin-bottom:16px;box-shadow:0 0 0 1px #2a2f39}
 .lg-logo svg{width:100%;height:100%;display:block}
 .lg-t{font-size:28px;font-weight:850;letter-spacing:2px;margin-bottom:6px}
+.steps{margin:0;padding-left:22px;font-size:16px;line-height:1.5}.steps li{margin-bottom:10px}.shr{display:inline-block;background:var(--card2);border-radius:6px;padding:0 6px}
 .lg-err{margin-top:12px;color:#ffb4a0;background:#2b1a16;border:1px solid #4a2a20;border-radius:10px;padding:9px 11px;font-size:14px}
 .lg-ph{width:96px;height:96px;border-radius:50%;background:var(--card2);border:2px dashed #3a4150;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 18px;position:relative;overflow:hidden;color:var(--ac);cursor:pointer}
 .lg-ph span{font-size:30px;line-height:1}.lg-ph small{font-size:11px;color:var(--mu)}
@@ -278,6 +279,7 @@ window.addEventListener('pagehide', flushAll);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAll(); });
 
 async function init(){
+  readImportHash();
   renderNav();
   try { localStorage.removeItem('ht_local_v1_unused'); } catch(e) {}
   if (!window.supabase || !window.supabase.createClient) { S.mode = 'local'; loadLocal(); banner('Couldn’t reach the server — saving on this phone only for now.'); render(); return; }
@@ -299,7 +301,8 @@ function startApp(session){
     snap.docs.forEach(d => { if (d.exists) m.set(d.id, d.data()); });
     for (const id in pending) { const j = pending[id]; if (j.op === 'set') m.set(id, j.data); else m.delete(id); }
     S.docs = m;
-    S.loaded = true; clearTimeout(t); banner('');
+    const first = !S.loaded; S.loaded = true; clearTimeout(t); banner('');
+    if (first && S.pendingImport) setTimeout(() => openModal('importOld'), 300);
     scheduleRender(); scheduleCrewSync();
   }, err => { clearTimeout(t); S.loaded = true; banner('Couldn’t load your data. Check your connection and reopen the app.'); scheduleRender(); });
 }
@@ -407,7 +410,7 @@ function showLogin(msg){
     <label class="f">Your name</label><input id="lgName" maxlength="24" autocomplete="nickname" placeholder="e.g. Kian">
     <div class="note">Use the same name to get back in on any phone.</div>
     ${msg ? `<div class="lg-err">${esc(msg)}</div>` : ''}
-    <button class="btn full" style="margin-top:16px" id="lgGo">Let’s go</button></div>`;
+    <button class="btn full" style="margin-top:16px" id="lgGo">Let’s go</button>${installBtn()}</div>`;
   $('#lgGo').onclick = doLogin;
   $('#lgName').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   const onPick = async e => {
@@ -923,6 +926,55 @@ function insightCard(){
 const MODALS = {};
 function openModal(name){ S.modal = name; renderModal(); }
 function closeModal(){ S.modal = null; renderModal(); render(); }
+/* ---------- import from old app + install ---------- */
+function readImportHash(){
+  const h = location.hash || '';
+  if (!h.startsWith('#import=')) return;
+  try {
+    const b64 = h.slice(8).replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64), bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    const o = JSON.parse(new TextDecoder().decode(bytes));
+    if (o && o.docs && typeof o.docs === 'object') S.pendingImport = o.docs;
+  } catch(e) { console.error(e); }
+  try { history.replaceState(null, '', location.pathname + location.search); } catch(e) {}
+}
+MODALS.importOld = () => {
+  const n = Object.keys(S.pendingImport || {}).length;
+  return `<div class="sh"><b>Bring over your old log</b><button class="btn2" data-a="closeModal">Not now</button></div>
+    <div class="note" style="font-size:15px">Found <b>${n} entries</b> from your old Lightweight app: weigh-ins, food, sleep and workouts. Add them to <b>${esc(S.myName || 'your account')}</b>?</div>
+    <button class="btn full sec" data-a="doImportOld" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Bringing it over…' : 'Yes, bring it over'}</button>`;
+};
+async function doImportOld(){
+  const docs = S.pendingImport; if (!docs || S.busy) return;
+  S.busy = true; renderModal();
+  const rows = Object.entries(docs).filter(([id, d]) => /^[A-Za-z0-9_\-.~:@+]+$/.test(id) && d && typeof d === 'object')
+    .map(([id, d]) => ({user_id:S.uid, id, data:d, updated_at:new Date().toISOString()}));
+  const {error} = await sb.from('lw_docs').upsert(rows);
+  S.busy = false;
+  if (error) { toast('Couldn’t bring it over — try again.'); renderModal(); return; }
+  rows.forEach(r => S.docs.set(r.id, r.data));
+  S.pendingImport = null; closeModal(); scheduleCrewSync();
+  toast(`Brought over ${rows.length} entries`);
+}
+const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+function installBtn(){ return isStandalone() ? '' : `<button class="btn2 full" style="margin-top:12px" data-a="install">📲 Add Lightweight to your home screen</button>`; }
+MODALS.install = () => {
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent), android = /Android/i.test(navigator.userAgent);
+  const steps = ios ? ['Open this page in <b>Safari</b> (or Chrome)', 'Tap the <b>Share</b> button <span class="shr">⬆︎</span>', 'Scroll down and tap <b>Add to Home Screen</b>', 'Tap <b>Add</b>']
+    : android ? ['Tap the <b>⋮</b> menu at the top right', 'Tap <b>Add to Home screen</b> (or <b>Install app</b>)', 'Tap <b>Add</b>']
+    : ['In Chrome or Edge, click the <b>install icon</b> at the right end of the address bar', 'Or open the <b>⋮</b> menu → <b>Cast, save and share</b> → <b>Install page as app</b>', 'Click <b>Install</b>'];
+  return `<div class="sh"><b>Get the app icon</b><button class="btn2" data-a="closeModal">Done</button></div>
+    <div class="row" style="gap:12px;margin-bottom:14px"><div class="logo" style="width:56px;height:56px;border-radius:14px">${LOGO}</div><div><b>Lightweight</b><div class="mu">Opens full screen, like a real app</div></div></div>
+    <ol class="steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>`;
+};
+async function doInstall(){
+  if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch(e) {} installEvt = null; return; }
+  if (document.body.classList.contains('signedout')) { const m = $('#modal'); S.modal = 'install'; renderModal(); return; }
+  openModal('install');
+}
+
 function renderModal(){
   const m = $('#modal');
   if (!S.modal) { m.classList.remove('open'); m.innerHTML = ''; document.body.classList.remove('lock'); return; }
@@ -1051,7 +1103,7 @@ MODALS.settings = () => {
       <button class="btn2 full sec" data-a="copyExport">Copy backup</button>
       <div class="sec"><label class="f">Restore from a backup</label><textarea id="impIn" placeholder="Paste a backup here"></textarea><button class="btn2 full sec" data-a="doImport">Restore</button></div></div>
     <div class="note">${S.mode === 'cloud' ? `Signed in as <b>${esc(S.myName || 'you')}</b>. Your log is private to you; the crew only sees your crew card.` : 'Data is saved on this phone only.'}</div>
-    <button class="btn2 full sec" data-a="signOut">Sign out</button><div class="note">To get back in, type the same name.</div>`;
+    ${installBtn()}<button class="btn2 full sec" data-a="signOut">Sign out</button><div class="note">To get back in, type the same name.</div>`;
 };
 
 /* ---------- crew ---------- */
@@ -1259,6 +1311,8 @@ const A = {
     saveWo(0); renderModal();
   },
   mic: () => { const d = S.dict; if (!d) return; if (listening) { d.stop().catch(()=>{}); return; } d.start().catch(e => { if (e && e.code === 'not_granted') { S.dict = null; renderModal(); toast('Microphone not allowed — use the keyboard mic instead.'); } }); },
+  install: () => doInstall(),
+  doImportOld: () => doImportOld(),
   signOut: async () => { flushAll(); try { await sb.auth.signOut(); } catch(e) {} location.reload(); },
   metric: a => { S.crewMetric = a.dataset.v; render(); },
   member: a => { S.memberId = a.dataset.id; openModal('member'); },
