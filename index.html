@@ -55,7 +55,8 @@ label.f{display:block;font-size:12px;color:var(--mu);margin:0 0 4px}
 input,select,textarea{font:inherit;font-size:16px;background:var(--card2);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;outline:none}
 input:focus,select:focus,textarea:focus{border-color:#4a5363}
 textarea{resize:vertical;min-height:64px}
-input[type=date],input[type=time]{min-height:44px}
+input[type=date],input[type=time]{min-height:44px;-webkit-appearance:none;appearance:none;min-width:0;width:100%;display:block;text-align:left}
+.grid2>*,.grid3>*{min-width:0}
 button{font:inherit;cursor:pointer}
 .btn{background:var(--ac);color:#12160a;border:0;border-radius:12px;padding:11px 16px;font-weight:700;white-space:nowrap}
 .btn:disabled{opacity:.5}
@@ -751,7 +752,7 @@ VIEWS.body = () => {
   const naps = napsOf(d), nm = napMin(d);
   h += `<div class="card"><div class="ch"><h3>Naps</h3><span class="mu">${nm ? `${minTxt(nm)} · total sleep ${round(sleepTotal(d),1)} hrs` : 'Counts toward your sleep'}</span></div>
     <div class="grid3">${[[20,'20 min'],[30,'30 min'],[45,'45 min'],[60,'1 hr'],[90,'1½ hrs'],[120,'2 hrs']].map(([m,l]) => `<button class="chip" data-a="nap" data-v="${m}">+ ${l}</button>`).join('')}</div>
-    <div class="grid2 sec"><div><label class="f">Nap started</label><input type="time" id="napS"></div><div><label class="f">Woke up</label><input type="time" id="napE"></div></div><button class="btn2 full" style="margin-top:8px" data-a="napTimes">Add nap</button>
+    <div class="grid2 sec"><div><label class="f">Nap started</label><input type="time" id="napS" value="${hmAgo(60)}"></div><div><label class="f">Woke up</label><input type="time" id="napE" value="${hmAgo(0)}"></div></div><button class="btn2 full" style="margin-top:8px" data-a="napTimes">Add nap</button>
     ${naps.length ? `<div class="list sec">${naps.map((n, i) => `<div class="it"><div class="main"><div class="nm">${minTxt(num(n.m))} nap</div>${n.start ? `<div class="sm">from ${esc(n.start)}</div>` : ''}</div><button class="x" data-a="rmNap" data-i="${i}">Remove</button></div>`).join('')}</div>` : ''}</div>`;
 
   const ws = all('weight').filter(x => num(x.lbs) > 0).sort(byDate).reverse().slice(0, 14);
@@ -862,6 +863,7 @@ function fig(p){
 const toMin = t => { if (!t) return null; const [h,m] = t.split(':').map(Number); return h*60 + m; };
 function woMins(w){ const a = toMin(w.start), b = toMin(w.end); if (a == null || b == null) return null; let d = b - a; if (d === 0) return null; if (d < 0) d += 1440; return d; }
 const durTxt = m => m == null ? '' : m >= 60 ? `${Math.floor(m/60)} h ${m%60 ? (m%60) + ' min' : ''}`.trim() : `${m} min`;
+const hmAgo = m => { const d = new Date(Date.now() - m*60000); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const partTags = w => (w.parts||[]).length ? `<div class="ptags">${w.parts.map(p => `<span>${esc(PART_LBL[p] || p)}</span>`).join('')}</div>` : '';
 function woLine(x){ const s = woStats(x), m = woMins(x); return [m != null ? durTxt(m) : '', s.sets ? `${s.sets} sets` : '', s.vol ? `${fmt(s.vol)} lb` : ''].filter(Boolean).join(' · '); }
