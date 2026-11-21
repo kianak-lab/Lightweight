@@ -967,6 +967,10 @@ MODALS.install = () => `<div class="sh"><b>Almost there</b><button class="btn2" 
     <div class="row" style="gap:12px;margin-bottom:12px"><div class="logo" style="width:56px;height:56px;border-radius:14px">${LOGO}</div><div>Apple only lets you add it from the <b>Share</b> button <span class="shr">⬆︎</span>, then <b>Add to Home Screen</b>.</div></div>`;
 async function doInstall(){
   if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch(e) {} installEvt = null; return; }
+  if (isIOS() && navigator.share) {
+    navigator.share({title:'Lightweight', url:location.origin + location.pathname}).catch(() => {});
+    return;
+  }
   S.modal = 'install'; renderModal();
 }
 
