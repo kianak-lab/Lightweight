@@ -450,8 +450,11 @@ const aiApi = {
   async json(prompt, opts = {}){
     const body = {prompt};
     if (opts.images && opts.images[0]) body.image = await blobToB64(opts.images[0]);
-    const {data, error} = await sb.functions.invoke('lw-ai', {body});
-    if (error) { const e = new Error(error.message); e.code = /429|rate/i.test(error.message) ? 'rate_limited' : 'ai_error'; throw e; }
+    const {data:sess} = await sb.auth.getSession();
+    const token = sess && sess.session ? sess.session.access_token : '';
+    const res = await fetch('https://thefloorplanguy.ca/api/lw-ai', {method:'POST', headers:{'content-type':'application/json', authorization:'Bearer ' + token}, body:JSON.stringify(body)});
+    let data = null; try { data = await res.json(); } catch(_) {}
+    if (!res.ok) { const e = new Error((data && data.error) || ('AI error ' + res.status)); e.code = res.status === 429 ? 'rate_limited' : 'ai_error'; console.error(e); throw e; }
     const t = String((data && data.text) || ''), m = t.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('no json');
     return JSON.parse(m[0]);
