@@ -168,6 +168,11 @@ body.signedout header,body.signedout main,body.signedout nav{display:none}
 .part.on{border-color:var(--ac);background:#232b12}
 .part.on span{color:var(--ac);font-weight:700}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
+.qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
+.qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
+.qrow{display:flex;align-items:center;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.qrow button{background:none;border:0;color:var(--ac);font-size:20px;width:28px;height:44px;flex:0 0 auto;padding:0}
+.qrow input{border:0;background:none;text-align:center;padding:8px 0;min-width:0;width:100%;font-weight:700;font-size:17px}
 .exs{grid-template-columns:repeat(3,1fr)}
 .exs .part{padding:8px 3px 6px;justify-content:flex-start}
 .exs .part svg{width:40px;height:36px}
@@ -833,23 +838,23 @@ function setupDictation(d){
 
 /* ---------- exercise library ---------- */
 const LIB = {
-  chest:[['Bench Press','bar'],['Incline Bench Press','bar'],['Dumbbell Bench Press','db'],['Incline Dumbbell Press','db'],['Chest Press Machine','mach'],['Pec Deck','mach'],['Cable Fly','cable'],['Dips','body'],['Push-up','body']],
-  back:[['Deadlift','bar'],['Barbell Row','bar'],['T-Bar Row','bar'],['Dumbbell Row','db'],['Lat Pulldown','cable'],['Seated Cable Row','cable'],['Row Machine','mach'],['Pull-up','body'],['Chin-up','body'],['Back Extension','body'],['Shrug','db']],
-  shoulders:[['Overhead Press','bar'],['Dumbbell Shoulder Press','db'],['Shoulder Press Machine','mach'],['Lateral Raise','db'],['Front Raise','db'],['Rear Delt Fly','mach'],['Face Pull','cable'],['Upright Row','bar']],
-  biceps:[['Bicep Curl','db'],['Barbell Curl','bar'],['Hammer Curl','db'],['Incline Dumbbell Curl','db'],['Preacher Curl','mach'],['Cable Curl','cable']],
-  triceps:[['Tricep Pushdown','cable'],['Skull Crusher','bar'],['Overhead Tricep Extension','db'],['Close-Grip Bench Press','bar'],['Dips','body'],['Tricep Dip Machine','mach']],
-  forearms:[['Wrist Curl','db'],['Reverse Curl','bar'],['Farmer Carry','db'],['Dead Hang','body']],
-  abs:[['Plank','body'],['Crunch','body'],['Hanging Leg Raise','body'],['Russian Twist','body'],['Ab Wheel','body'],['Cable Crunch','cable'],['Ab Crunch Machine','mach']],
-  legs:[['Squat','bar'],['Front Squat','bar'],['Leg Press','mach'],['Hack Squat','mach'],['Leg Extension','mach'],['Lunge','db'],['Bulgarian Split Squat','db'],['Goblet Squat','db']],
-  glutes:[['Hip Thrust','bar'],['Romanian Deadlift','bar'],['Glute Bridge','body'],['Cable Kickback','cable'],['Hip Abduction Machine','mach']],
-  hamstrings:[['Romanian Deadlift','bar'],['Deadlift','bar'],['Good Morning','bar'],['Leg Curl','mach'],['Seated Leg Curl','mach']],
-  calves:[['Calf Raise','mach'],['Seated Calf Raise','mach'],['Leg Press Calf Raise','mach']],
-  cardio:[['Treadmill','cardio'],['Stationary Bike','cardio'],['Elliptical','cardio'],['Stair Climber','cardio'],['Rowing Machine','cardio'],['Run','cardio'],['Walk','cardio'],['Jump Rope','cardio']],
-  full:[['Deadlift','bar'],['Squat','bar'],['Bench Press','bar'],['Overhead Press','bar'],['Pull-up','body'],['Clean and Press','bar'],['Kettlebell Swing','db'],['Burpee','body']]
+  chest:[['Bench Press','bar'],['Incline Bench Press','bar'],['Decline Bench Press','bar'],['Dumbbell Bench Press','db'],['Incline Dumbbell Press','db'],['Decline Dumbbell Press','db'],['Dumbbell Fly','db'],['Smith Machine Bench Press','smith'],['Smith Machine Incline Press','smith'],['Chest Press Machine','mach'],['Incline Chest Press Machine','mach'],['Hammer Strength Chest Press','plate'],['Hammer Strength Incline Press','plate'],['Hammer Strength Decline Press','plate'],['Pec Deck','mach'],['Cable Crossover','cable'],['Low-to-High Cable Fly','cable'],['Dips','body'],['Assisted Dip Machine','mach'],['Push-up','body']],
+  back:[['Deadlift','bar'],['Barbell Row','bar'],['Rack Pull','bar'],['T-Bar Row','plate'],['Dumbbell Row','db'],['Lat Pulldown','cable'],['Close-Grip Lat Pulldown','cable'],['Straight-Arm Pulldown','cable'],['Seated Cable Row','cable'],['Row Machine','mach'],['Hammer Strength Row','plate'],['Hammer Strength High Row','plate'],['Hammer Strength Pulldown','plate'],['Assisted Pull-up Machine','mach'],['Pull-up','body'],['Chin-up','body'],['Back Extension','body'],['Back Extension Machine','mach'],['Shrug','db'],['Barbell Shrug','bar']],
+  shoulders:[['Overhead Press','bar'],['Smith Machine Shoulder Press','smith'],['Dumbbell Shoulder Press','db'],['Arnold Press','db'],['Shoulder Press Machine','mach'],['Hammer Strength Shoulder Press','plate'],['Lateral Raise','db'],['Cable Lateral Raise','cable'],['Lateral Raise Machine','mach'],['Front Raise','db'],['Rear Delt Fly','mach'],['Reverse Dumbbell Fly','db'],['Face Pull','cable'],['Upright Row','bar']],
+  biceps:[['Bicep Curl','db'],['Barbell Curl','bar'],['EZ-Bar Curl','bar'],['Hammer Curl','db'],['Incline Dumbbell Curl','db'],['Concentration Curl','db'],['Preacher Curl','bar'],['Bicep Curl Machine','mach'],['Cable Curl','cable'],['Rope Hammer Curl','cable']],
+  triceps:[['Tricep Pushdown','cable'],['Rope Pushdown','cable'],['Overhead Cable Extension','cable'],['Skull Crusher','bar'],['Close-Grip Bench Press','bar'],['Overhead Tricep Extension','db'],['Tricep Kickback','db'],['Tricep Extension Machine','mach'],['Tricep Dip Machine','mach'],['Dips','body'],['Bench Dip','body']],
+  forearms:[['Wrist Curl','db'],['Reverse Wrist Curl','db'],['Reverse Curl','bar'],['Farmer Carry','db'],['Plate Pinch','plate'],['Dead Hang','body']],
+  abs:[['Crunch','body'],['Bicycle Crunch','body'],['Decline Sit-up','body'],['Plank','body'],['Side Plank','body'],['Hanging Leg Raise','body'],['Captain’s Chair Knee Raise','mach'],['Ab Crunch Machine','mach'],['Rotary Torso Machine','mach'],['Cable Crunch','cable'],['Cable Woodchopper','cable'],['Russian Twist','body'],['Ab Wheel','body']],
+  legs:[['Squat','bar'],['Front Squat','bar'],['Smith Machine Squat','smith'],['Leg Press','mach'],['Hammer Strength Leg Press','plate'],['Hack Squat','plate'],['Pendulum Squat','plate'],['Leg Extension','mach'],['Goblet Squat','db'],['Lunge','db'],['Walking Lunge','db'],['Bulgarian Split Squat','db'],['Step-up','db']],
+  glutes:[['Hip Thrust','bar'],['Smith Machine Hip Thrust','smith'],['Hip Thrust Machine','mach'],['Romanian Deadlift','bar'],['Sumo Deadlift','bar'],['Glute Bridge','body'],['Cable Kickback','cable'],['Glute Kickback Machine','mach'],['Hip Abduction Machine','mach'],['Hip Adduction Machine','mach']],
+  hamstrings:[['Romanian Deadlift','bar'],['Deadlift','bar'],['Stiff-Leg Dumbbell Deadlift','db'],['Good Morning','bar'],['Lying Leg Curl','mach'],['Seated Leg Curl','mach'],['Standing Leg Curl','mach'],['Glute-Ham Raise','body'],['Back Extension','body']],
+  calves:[['Standing Calf Raise','mach'],['Seated Calf Raise','mach'],['Leg Press Calf Raise','mach'],['Smith Machine Calf Raise','smith'],['Dumbbell Calf Raise','db']],
+  cardio:[['Treadmill','cardio'],['Elliptical','cardio'],['Stationary Bike','cardio'],['Recumbent Bike','cardio'],['Spin Bike','cardio'],['Stair Climber','cardio'],['Step Mill','cardio'],['Arc Trainer','cardio'],['Rowing Machine','cardio'],['Swimming','cardio'],['Basketball','cardio'],['Racquetball','cardio'],['Run','cardio'],['Walk','cardio'],['Jump Rope','cardio']],
+  full:[['Deadlift','bar'],['Squat','bar'],['Bench Press','bar'],['Overhead Press','bar'],['Clean and Press','bar'],['Thruster','bar'],['Kettlebell Swing','db'],['Pull-up','body'],['Burpee','body'],['Battle Ropes','body']]
 };
 const CARDIO = new Set(LIB.cardio.map(e => e[0]));
 Object.values(LIB).flat().forEach(([n]) => { if (!PRESET.includes(n)) PRESET.push(n); });
-const EQ_LBL = {bar:'Barbell', db:'Dumbbell', mach:'Machine', cable:'Cable', body:'Bodyweight', cardio:'Cardio'};
+const EQ_LBL = {bar:'Barbell', db:'Dumbbell', mach:'Machine', cable:'Cable', body:'Bodyweight', cardio:'Cardio', smith:'Smith machine', plate:'Plate-loaded'};
 function eqIcon(k, on){
   const c = on ? '#c6f432' : '#9aa3b2', d = on ? '#7d9a1f' : '#4a5263';
   const g = {
@@ -857,6 +862,8 @@ function eqIcon(k, on){
     db:`<rect x="13" y="15.5" width="14" height="3.6" rx="1.5" fill="${d}"/><rect x="7" y="10" width="7" height="14" rx="2.5" fill="${c}"/><rect x="26" y="10" width="7" height="14" rx="2.5" fill="${c}"/>`,
     mach:`<path d="M8 30V5h24v25" fill="none" stroke="${d}" stroke-width="2.4" stroke-linecap="round"/><rect x="14" y="10" width="12" height="3.4" rx="1" fill="${c}"/><rect x="14" y="14.6" width="12" height="3.4" rx="1" fill="${c}"/><rect x="14" y="19.2" width="12" height="3.4" rx="1" fill="${c}"/><rect x="14" y="23.8" width="12" height="3.4" rx="1" fill="${d}"/>`,
     cable:`<path d="M9 31V5h14" fill="none" stroke="${d}" stroke-width="2.4" stroke-linecap="round"/><circle cx="24" cy="7" r="3.2" fill="${c}"/><path d="M26 9.5L30 22" stroke="${c}" stroke-width="1.8"/><rect x="25" y="22" width="10" height="3.4" rx="1.7" fill="${c}"/>`,
+    smith:`<path d="M7 33V3M33 33V3" stroke="${d}" stroke-width="2.4" stroke-linecap="round"/><rect x="4" y="14" width="32" height="2.6" rx="1.3" fill="${c}"/><rect x="9" y="9" width="3.6" height="13" rx="1.4" fill="${c}"/><rect x="27.4" y="9" width="3.6" height="13" rx="1.4" fill="${c}"/>`,
+    plate:`<circle cx="20" cy="18" r="13" fill="none" stroke="${c}" stroke-width="4"/><circle cx="20" cy="18" r="3.2" fill="${d}"/><path d="M20 5v4M20 27v4" stroke="${d}" stroke-width="1.5"/>`,
     body:`<circle cx="20" cy="7" r="4" fill="${c}"/><path d="M13 13h14l-2 11h-10z" fill="${c}"/><rect x="14.5" y="24" width="4.5" height="9" rx="2" fill="${d}"/><rect x="21" y="24" width="4.5" height="9" rx="2" fill="${d}"/>`,
     cardio:`<path d="M20 30c-7-5-12-9-12-14.5a6 6 0 0 1 12-2a6 6 0 0 1 12 2c0 5.500-5 9.500-12 14.500z" fill="${on ? '#c6f432' : '#ff7eb6'}"/>`
   }[k] || '';
@@ -920,6 +927,20 @@ function insightCard(){
   if (S.sample) h += `<button class="btn full sec" data-a="insights" ${S.insBusy ? 'disabled' : ''}>${S.insBusy ? 'Analyzing everything…' : r ? '✨ Analyze again' : '✨ Analyze my progress'}</button>`;
   else h += `<div class="note">AI isn’t available in this view.</div>`;
   return h + `<div class="note">AI-written from your logs. A guide, not medical advice.</div></div>`;
+}
+
+function exEach(ex){ if (ex.each) return true; const ss = ex.sets || []; return ss.some(x => String(x.w) !== String((ss[0]||{}).w) || String(x.r) !== String((ss[0]||{}).r)); }
+function quickSets(ex, i){
+  const c = CARDIO.has(ex.name), f = (ex.sets || [])[0] || {w:'', r:''}, n = (ex.sets || []).length || 1;
+  const v = (k, val, lbl, step, mode) => `<div class="qs"><label>${lbl}</label><div class="qrow"><button data-a="qstep" data-i="${i}" data-k="${k}" data-v="-${step}">−</button><input type="number" inputmode="${mode}" data-q="${i},${k}" value="${esc(val)}" placeholder="0"><button data-a="qstep" data-i="${i}" data-k="${k}" data-v="${step}">+</button></div></div>`;
+  return `<div class="qsets">${c ? '' : v('n', n, 'Sets', 1, 'numeric')}${v('r', f.r, c ? 'Minutes' : 'Reps', c ? 5 : 1, 'numeric')}${v('w', f.w, c ? 'Level' : 'Weight (lb)', c ? 1 : 5, 'decimal')}</div>
+    ${c ? '' : `<div class="row" style="justify-content:space-between"><span class="sm mu">${f.w && f.r && n ? `${n} × ${f.r} @ ${f.w} lb${e1rm(num(f.w), num(f.r)) ? ` · est. max ${round(e1rm(num(f.w), num(f.r)))}` : ''}` : ''}</span><button class="lnk" data-a="eachSet" data-i="${i}">Different each set</button></div>`}`;
+}
+function setQuick(i, k, val){
+  const ex = S.wo.exercises[i], f = ex.sets[0] || {w:'', r:''};
+  let n = ex.sets.length || 1, w = f.w, r = f.r;
+  if (k === 'n') n = clamp(Math.round(num(val)) || 1, 1, 20); else if (k === 'w') w = val === '' ? '' : Math.max(0, num(val)); else r = val === '' ? '' : Math.max(0, Math.round(num(val)));
+  ex.sets = Array.from({length:n}, () => ({w, r}));
 }
 
 /* ---------- modals ---------- */
@@ -1008,9 +1029,9 @@ MODALS.workout = () => {
     const lt = lastTimeFor(ex.name, S.woId), {best} = bestFor(ex.name);
     h += `<div class="ex"><div class="exh"><b>${esc(ex.name)}</b><button class="x" data-a="rmEx" data-i="${i}">Remove</button></div>
       <div class="sm mu">${lt ? `Last (${fmtDate(lt.date, {month:'short', day:'numeric'})}): ${setsStr(lt.sets)}` : 'First time logging this'}${best ? ` · Best est. max ${round(best.e)}` : ''}</div>
-      <table class="sets"><tr><th></th><th>${CARDIO.has(ex.name) ? 'Level' : 'lb'}</th><th>${CARDIO.has(ex.name) ? 'Min' : 'Reps'}</th><th style="text-align:center">${CARDIO.has(ex.name) ? '' : 'Est.'}</th><th></th></tr>
+      ${exEach(ex) ? `<table class="sets"><tr><th></th><th>${CARDIO.has(ex.name) ? 'Level' : 'lb'}</th><th>${CARDIO.has(ex.name) ? 'Min' : 'Reps'}</th><th style="text-align:center">${CARDIO.has(ex.name) ? '' : 'Est.'}</th><th></th></tr>
       ${ex.sets.map((s, j) => `<tr><td class="n">${j+1}</td><td><input type="number" inputmode="decimal" step="2.5" data-set="${i},${j},w" value="${esc(s.w)}" placeholder="0"></td><td><input type="number" inputmode="numeric" data-set="${i},${j},r" value="${esc(s.r)}" placeholder="0"></td><td class="e" id="e_${i}_${j}">${!CARDIO.has(ex.name) && e1rm(num(s.w), num(s.r)) ? round(e1rm(num(s.w), num(s.r))) : ''}</td><td><button class="x" data-a="rmSet" data-i="${i}" data-j="${j}" aria-label="Remove set">✕</button></td></tr>`).join('')}
-      </table><button class="lnk" data-a="addSet" data-i="${i}">+ Add set</button></div>`;
+      </table><button class="lnk" data-a="addSet" data-i="${i}">+ Add set</button><button class="lnk" style="margin-left:14px" data-a="sameSets" data-i="${i}">Same for every set</button>` : quickSets(ex, i)}</div>`;
   });
   h += `    <div class="sec"><label class="f">Notes</label><textarea data-wo="notes" placeholder="How it felt, form cues, pain…">${esc(w.notes || '')}</textarea></div>
     <div class="note">Saves automatically as you go.</div>
@@ -1301,7 +1322,8 @@ const A = {
       S.wo.exercises.splice(idx, 1);
     } else {
       const lt = lastTimeFor(name, S.woId), top = lt ? lt.sets[0] : null;
-      S.wo.exercises.push({name, sets:[{w: top ? top.w : '', r: top ? top.r : ''}]});
+      const nn = lt ? Math.min(lt.sets.length, 10) : (CARDIO.has(name) ? 1 : 3);
+      S.wo.exercises.push({name, sets:Array.from({length:nn}, () => ({w: top ? top.w : '', r: top ? top.r : (CARDIO.has(name) ? 20 : 10)}))});
       toast(`${name} added — enter your sets below`);
     }
     saveWo(0); renderModal();
@@ -1360,6 +1382,9 @@ const A = {
   },
   rmEx: a => { if (!armDelete(a)) return; S.wo.exercises.splice(+a.dataset.i, 1); saveWo(0); renderModal(); },
   addSet: a => { const ex = S.wo.exercises[+a.dataset.i]; const l = ex.sets[ex.sets.length-1] || {w:'', r:''}; ex.sets.push({w:l.w, r:l.r}); saveWo(); renderModal(); },
+  qstep: a => { const i = +a.dataset.i, k = a.dataset.k, ex = S.wo.exercises[i], f = ex.sets[0] || {w:'', r:''}; const cur = k === 'n' ? ex.sets.length : num(f[k]); setQuick(i, k, Math.max(k === 'n' ? 1 : 0, cur + num(a.dataset.v))); saveWo(); renderModal(); },
+  eachSet: a => { S.wo.exercises[+a.dataset.i].each = true; renderModal(); },
+  sameSets: a => { const ex = S.wo.exercises[+a.dataset.i]; ex.each = false; const f = ex.sets[0] || {w:'', r:''}; ex.sets = ex.sets.map(() => ({w:f.w, r:f.r})); saveWo(); renderModal(); },
   rmSet: a => { const ex = S.wo.exercises[+a.dataset.i]; ex.sets.splice(+a.dataset.j, 1); saveWo(); renderModal(); },
   saveSettings: () => {
     const st = settings();
@@ -1392,6 +1417,7 @@ document.addEventListener('click', e => {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.wo && S.wo) { S.wo[t.dataset.wo] = t.value; if (t.dataset.wo === 'desc') return; saveWo(); if (t.dataset.wo === 'start' || t.dataset.wo === 'end') { const d = $('#woDur'); if (d) d.textContent = durTxt(woMins(S.wo)); } }
+  else if (t.dataset.q && S.wo) { const [i, k] = t.dataset.q.split(','); setQuick(+i, k, t.value); saveWo(); }
   else if (t.dataset.set && S.wo) {
     const [i, j, k] = t.dataset.set.split(','); const s = S.wo.exercises[+i].sets[+j];
     s[k] = t.value === '' ? '' : num(t.value);
