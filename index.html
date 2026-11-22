@@ -906,13 +906,21 @@ function voiceToggle(){
   if (!S.wo) return;
   if (S.wo.busy) return;
   if (!SR) { S.voiceType = true; renderModal(); setTimeout(() => { const t = $('#voiceIn'); if (t) t.focus(); }, 50); return; }
-  if (recog) { try { recog.stop(); } catch(_) {} return; }
+  if (recog) { voiceFinish(); return; }
   let finalText = '';
   recog = new SR(); recog.lang = 'en-CA'; recog.interimResults = true; recog.continuous = true;
   recog.onresult = e => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += t + ' '; else interim += t; } S.voiceText = (finalText + interim).trim(); const el = $('#voiceLive'); if (el) el.textContent = S.voiceText; };
   recog.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { toast('Allow the microphone for this app in Settings, or type it instead.'); S.voiceType = true; } };
-  recog.onend = () => { recog = null; listening = false; const txt = (S.voiceText || '').trim(); if (S.wo && txt) { S.wo.desc = txt; aiWorkout(); } else renderModal(); };
+  recog.onend = () => { if (recog) voiceFinish(); };
   try { recog.start(); listening = true; S.voiceText = ''; renderModal(); } catch(e) { recog = null; S.voiceType = true; renderModal(); }
+}
+function voiceFinish(){
+  // iPhone doesn't always report the end of listening, so finish it ourselves
+  const r = recog; recog = null; listening = false;
+  if (r) { r.onend = null; r.onresult = null; try { r.abort(); } catch(_) { try { r.stop(); } catch(__) {} } }
+  const txt = (S.voiceText || '').trim();
+  if (S.wo && txt) { S.wo.desc = txt; aiWorkout(); }
+  else { S.voiceType = true; renderModal(); toast('Didn’t catch that — type it or try the mic again.'); }
 }
 function voiceBlock(w){
   if (!S.sample) return '';
