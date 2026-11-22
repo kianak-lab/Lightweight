@@ -222,6 +222,18 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .vt{display:block;font-size:19px;font-weight:800;margin-top:4px}
 .vs{display:block;font-size:13px;color:var(--mu);margin-top:4px}
 .vlive{width:100%;font-size:15px;margin-top:6px;color:var(--tx);min-height:0}
+.restmsg{font-size:15px;color:#b39dff;margin-top:2px}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cdh{text-align:center;font-size:11px;color:var(--mu);font-weight:700;padding-bottom:2px}
+.cd{background:var(--card2);border:1px solid var(--line);border-radius:9px;min-height:50px;padding:4px 1px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--tx);min-width:0}
+.cd b{font-size:12.5px;font-weight:700;color:var(--mu)}
+.cd span{font-size:9.5px;font-weight:800;letter-spacing:.2px;line-height:1.1;text-align:center;word-break:break-word}
+.cd.w{background:linear-gradient(180deg,#3d4d16,#262f10);border-color:#6b8a1e}
+.cd.w b{color:#e8f7a8}.cd.w span{color:var(--ac)}
+.cd.r{background:#231f33;border-color:#3b3357}.cd.r span{color:#b39dff}
+.cd.t{outline:2px solid var(--ac);outline-offset:1px}
+.cd.f{opacity:.35}
+.calnav{padding:6px 14px;font-size:18px}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -556,7 +568,7 @@ function datesWithLogs(){
   const s = new Set();
   for (const [, d] of S.docs) {
     if (!d || !d.date) continue;
-    if (d.kind === 'daily' && !(d.water || d.steps || d.energy || d.mood || d.notes || (d.naps || []).length)) continue;
+    if (d.kind === 'daily' && !(d.water || d.steps || d.energy || d.mood || d.notes || d.off || (d.naps || []).length)) continue;
     if (['weight','food','sleep','workout','daily'].includes(d.kind)) s.add(d.date);
   }
   return s;
@@ -610,6 +622,28 @@ const nightHrs = d => { const s = S.docs.get('s_'+d); return s ? num(s.hours) : 
 const sleepTotal = d => nightHrs(d) + napMin(d) / 60;
 const minTxt = m => m >= 60 ? `${Math.floor(m/60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
 function addNap(m, start){ const d = dayDoc(S.date); d.naps = [...(d.naps || []), {m:Math.round(m), start:start || '', ts:Date.now()}]; put('d_'+S.date, d); toast(`Nap logged — ${minTxt(Math.round(m))}`); }
+
+/* ---------- workout calendar ---------- */
+const PART_AB = {chest:'CH', back:'BK', shoulders:'SH', biceps:'BI', triceps:'TRI', forearms:'FA', abs:'AB', legs:'LG', glutes:'GL', hamstrings:'HS', calves:'CV', cardio:'CAR', full:'FULL'};
+function calendarCard(month, nav){
+  const [y, m] = month.split('-').map(Number), first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), t = today();
+  const lead = (first.getDay() + 6) % 7;
+  const byDay = {}; workouts().forEach(w => { if (w.date.startsWith(month)) (byDay[w.date] = byDay[w.date] || []).push(w); });
+  let nW = 0, nR = 0, cells = '';
+  for (let i = 0; i < lead; i++) cells += '<div></div>';
+  for (let dd = 1; dd <= days; dd++) {
+    const ds = `${month}-${pad(dd)}`, ws = byDay[ds] || [], off = !ws.length && !!(S.docs.get('d_'+ds) || {}).off;
+    const parts = [...new Set(ws.flatMap(w => w.parts || []))];
+    if (ws.length) nW++; if (off) nR++;
+    const ab = parts.length ? parts.slice(0, 2).map(p => PART_AB[p] || p.slice(0, 2).toUpperCase()).join(' ') + (parts.length > 2 ? ` +${parts.length - 2}` : '') : ws.length ? '✓' : off ? 'REST' : '';
+    cells += `<button class="cd ${ws.length ? 'w' : ''} ${off ? 'r' : ''} ${ds === t ? 't' : ''} ${ds > t ? 'f' : ''}" data-a="calDay" data-v="${ds}" ${ds > t ? 'disabled' : ''}><b>${dd}</b><span>${ab}</span></button>`;
+  }
+  const label = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+  const prev = ymd(new Date(y, m - 2, 1)).slice(0, 7), next = ymd(new Date(y, m, 1)).slice(0, 7);
+  return `<div class="card"><div class="ch"><h3>${nav ? label : 'This month'}</h3>${nav ? `<div class="row"><button class="btn2 calnav" data-a="calMonth" data-v="${prev}">‹</button><button class="btn2 calnav" data-a="calMonth" data-v="${next}" ${next > t.slice(0, 7) ? 'disabled' : ''}>›</button></div>` : `<span class="mu">${label}</span>`}</div>
+    <div class="calg">${['M','T','W','T','F','S','S'].map(x => `<div class="cdh">${x}</div>`).join('')}${cells}</div>
+    <div class="note">${nW} workout${nW === 1 ? '' : 's'}${nR ? ` · ${nR} rest day${nR === 1 ? '' : 's'}` : ''} · tap a day to open it</div></div>`;
+}
 
 /* ---------- charts ---------- */
 function lineChart(series, {goal=null, h=170}={}){
@@ -678,9 +712,14 @@ VIEWS.today = () => {
   h += `<div class="card tap" data-a="tab" data-v="body"><div class="ch"><h3>Sleep</h3>${sl ? `<span class="mu">${'★'.repeat(num(sl.quality))}${'☆'.repeat(5 - num(sl.quality))}</span>` : ''}</div>
     ${tot ? `<div class="big">${round(tot,1)}<small> hrs${sl ? ` · ${esc(sl.bed)} → ${esc(sl.wake)}` : ''}${nm ? ` · incl. ${minTxt(nm)} nap${napsOf(d).length > 1 ? 's' : ''}` : ''}</small></div>${bar(tot, st.sleepTarget, 'var(--pur)')}` : `<div class="empty">Tap to log last night’s sleep or a nap.</div>`}</div>`; }
 
-  h += `<div class="card"><div class="ch"><h3>Workout</h3>${wos.length ? '<span class="pill">Done</span>' : ''}</div>`;
+  const off = !!(S.docs.get('d_'+d) || {}).off && !wos.length;
+  h += `<div class="card"><div class="ch"><h3>Workout</h3>${wos.length ? '<span class="pill">Done</span>' : off ? '<span class="pill" style="background:#2a2440;color:#b39dff">Rest day</span>' : ''}</div>`;
+  if (off) h += `<div class="restmsg">😴 Rest day — recovery counts too.</div>`;
   if (wos.length) h += `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${woLine(x) || 'No sets yet'}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>`;
-  h += `<button class="btn full" style="margin-top:8px" data-a="newWo">${wos.length ? 'Continue workout' : 'Start workout'}</button></div>`;
+  h += wos.length ? `<button class="btn full" style="margin-top:8px" data-a="newWo">Continue workout</button></div>`
+    : off ? `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Work out anyway</button><button class="btn2" data-a="offDay">Undo rest day</button></div></div>`
+    : `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Start workout</button><button class="btn2" data-a="offDay">😴 Rest day</button></div></div>`;
+  h += calendarCard(d.slice(0, 7), false);
 
   return h;
 };
@@ -780,6 +819,8 @@ VIEWS.prog = () => {
     ${proj ? `<div class="note">${proj}</div>` : ''}
     <div style="margin-top:10px">${lineChart([{pts:recent.map(w => ({x:dnum(w.date), y:num(w.lbs)})), color:'#7a8292', dots:true, w:1, op:.8}, {pts:avgPts, color:'var(--ac)', w:2.5}], {goal: recent.length ? st.goalWeight : null, h:180})}</div>
     <div class="legend"><span><i style="background:#7a8292"></i>Daily</span><span><i style="background:var(--ac)"></i>7-day average</span></div></div>`;
+
+  h += calendarCard(S.calMonth || t.slice(0, 7), true);
 
   // food 14 days
   const days14 = Array.from({length:14}, (_, i) => addDays(t, i-13));
@@ -1494,6 +1535,9 @@ const A = {
   rest: a => startRest(+a.dataset.v),
   part: a => { const p = a.dataset.v, ps = S.wo.parts; const i = ps.indexOf(p); if (i >= 0) ps.splice(i, 1); else ps.push(p); a.classList.toggle('on', i < 0); S.wo.name = autoName(ps); const wn = $('#woName'); if (wn) wn.textContent = S.wo.name || 'Workout'; saveWo(); const ep = $('#exPick'); if (ep) ep.innerHTML = exPickHtml(); },
   woNow: a => { S.wo[a.dataset.k] = nowHM(); saveWo(0); renderModal(); },
+  offDay: () => { const d = dayDoc(S.date); d.off = !d.off; put('d_'+S.date, d); toast(d.off ? 'Rest day logged 😴' : 'Rest day removed'); },
+  calDay: a => { S.date = a.dataset.v; S.tab = 'today'; render(); window.scrollTo(0, 0); },
+  calMonth: a => { S.calMonth = a.dataset.v; render(); },
   aiWo: () => { S.voiceType = false; aiWorkout(); },
   voice: () => voiceToggle(),
   voiceClose: () => { S.voiceType = false; renderModal(); },
