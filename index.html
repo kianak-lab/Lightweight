@@ -264,6 +264,12 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .recb.on{border-color:var(--ac);background:#f3fbd9}
 .recc{background:#fff4ec;border-color:#ffd6bf;color:#9a3f12}
 .crec{font-style:normal;font-size:9px;line-height:1;letter-spacing:-1px}
+.eatleft{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.eatleft div{background:var(--card2);border-radius:12px;padding:10px;text-align:center}
+.eatleft b{display:block;font-size:22px;font-weight:850}
+.eatleft span{font-size:12px;color:var(--mu)}
+.eattip{font-size:14px;margin:2px 0 6px;color:var(--tx)}
+.ate{padding:8px 12px;font-size:14px}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -864,10 +870,7 @@ VIEWS.food = () => {
   const pdays = Object.keys(byDay).sort().reverse().slice(0, 21);
   if (pdays.length) h += `<div class="card"><div class="ch"><h3>Photo diary</h3><span class="mu">tap a day</span></div><div class="list">${pdays.map(dd => { const fs = byDay[dd].sort((a, b) => (a.ts || 0) - (b.ts || 0)), tot = sumFood(all('food').filter(f => f.date === dd));
     return `<div class="it tap ${dd === d ? 'pdsel' : ''}" data-a="foodDay" data-v="${dd}"><div class="stack">${fs.slice(0, 4).map((f, i) => `<img src="${blobUrl(f.photo)}" alt="" loading="lazy" style="z-index:${10 - i}">`).join('')}${fs.length > 4 ? `<span>+${fs.length - 4}</span>` : ''}</div><div class="main"><div class="nm">${dd === today() ? 'Today' : fmtDate(dd)}</div><div class="sm">${fmt(tot.cal)} cal · ${fmt(tot.p)} g protein</div></div><span class="mu">›</span></div>`; }).join('')}</div></div>`;
-  // recents
-  const cut = addDays(today(), -45), seen = new Set(), rec = [];
-  all('food').filter(f => f.date >= cut).sort((a,b) => (b.ts||0) - (a.ts||0)).forEach(f => { const k = (f.name||'').trim().toLowerCase(); if (k && !seen.has(k) && rec.length < 16) { seen.add(k); rec.push(f); } });
-  if (rec.length) h += `<div class="card"><div class="ch"><h3>Quick add</h3><span class="mu">Adds to ${guessMeal()}</span></div><div class="chips">${rec.map(f => `<button class="chip" data-a="quickFood" data-id="${esc(f.id)}">${esc(f.name)} <span class="mu">${fmt(num(f.cal))}</span></button>`).join('')}</div></div>`;
+  h += eatNextCard(d, foods, tot, st);
   return h;
 };
 
@@ -1209,6 +1212,52 @@ function setQuick(i, k, val){
   ex.sets = Array.from({length:n}, () => ({w, r}));
 }
 
+/* ---------- what to eat next ---------- */
+function nextMeal(d, foods){
+  if (d !== today()) return 'Snacks';
+  const have = new Set(foods.map(f => f.meal)), h = new Date().getHours();
+  if (h < 11 && !have.has('Breakfast')) return 'Breakfast';
+  if (h < 16 && !have.has('Lunch')) return 'Lunch';
+  if (h < 21 && !have.has('Dinner')) return 'Dinner';
+  return 'Snacks';
+}
+function eatNextCard(d, foods, tot, st){
+  const meal = nextMeal(d, foods), left = Math.round(st.calTarget - tot.cal), pLeft = Math.max(0, Math.round(st.proteinTarget - tot.p));
+  const sg = S.docs.get('sugg'), fresh = sg && sg.date === d && sg.meal === meal && sg.eaten === foods.length;
+  let h = `<div class="card"><div class="ch"><h3>What to eat next</h3><span class="mu">${esc(meal)}</span></div>
+    <div class="eatleft"><div><b>${left > 0 ? fmt(left) : 0}</b><span>cal left</span></div><div><b>${fmt(pLeft)} g</b><span>protein to go</span></div></div>`;
+  if (left <= 0) h += `<div class="note">You’ve hit today’s calories. If you’re still hungry, stick to veggies, water or plain protein like egg whites.</div>`;
+  if (sg && sg.date === d && sg.items && sg.items.length) {
+    h += `${sg.tip ? `<div class="eattip">${esc(sg.tip)}</div>` : ''}<div class="list">${sg.items.map((it, i) => `<div class="it"><div class="main"><div class="nm"><b>${esc(it.name)}</b></div><div class="sm">${fmt(num(it.cal))} cal · ${fmt(num(it.p))} g protein${it.why ? ` · ${esc(it.why)}` : ''}</div></div><button class="btn2 ate" data-a="ateSugg" data-i="${i}">Ate it</button></div>`).join('')}</div>`;
+  }
+  h += `<button class="btn full sec" data-a="suggest" ${S.suggBusy ? 'disabled' : ''}>${S.suggBusy ? 'Thinking…' : sg && sg.date === d ? (fresh ? '🔄 Other ideas' : '✨ Update ideas') : '✨ Tell me what to eat'}</button>
+    <div class="note">Ideas to hit ${fmt(st.calTarget)} cal and ${fmt(st.proteinTarget)} g protein, on the way to ${st.goalWeight} lb.${st.avoidFoods ? ` Skips: ${esc(st.avoidFoods)}.` : ' Set foods you don’t eat in ⚙️ settings.'}</div></div>`;
+  return h;
+}
+async function suggestFood(){
+  if (S.suggBusy) return;
+  const st = settings(), d = S.date, foods = all('food').filter(f => f.date === d).sort((a, b) => (a.ts || 0) - (b.ts || 0)), tot = sumFood(foods);
+  const meal = nextMeal(d, foods), left = Math.round(st.calTarget - tot.cal), pLeft = Math.max(0, Math.round(st.proteinTarget - tot.p));
+  const lw = weightOnOrBefore(d), recent = [...new Set(all('food').filter(f => f.date >= addDays(d, -7)).map(f => f.name))].slice(0, 25);
+  const prev = S.docs.get('sugg'), avoidPrev = prev && prev.date === d ? prev.items.map(i => i.name) : [];
+  S.suggBusy = true; render();
+  const prompt = `You are a practical nutrition coach inside a fitness tracking app. Suggest what this person should eat for their next meal so they stay on track for steady, healthy weight loss.
+Current weight: ${lw ? lw.lbs + ' lb' : 'unknown'}. Goal weight: ${st.goalWeight} lb. Daily target: ${st.calTarget} calories and ${st.proteinTarget} g protein.
+Eaten so far today: ${foods.length ? foods.map(f => `${f.meal}: ${f.name} (${Math.round(num(f.cal))} cal, ${Math.round(num(f.p))} g protein)`).join('; ') : 'nothing yet'}.
+Left for today: ${left} calories, ${pLeft} g protein. Next meal: ${meal}. Local time: ${nowHM()}.
+Foods they don't eat: ${st.avoidFoods || 'none listed'}. Never suggest those or anything containing them.
+Eaten in the last week (vary from these): ${recent.join(', ') || 'none'}.${avoidPrev.length ? ` Already suggested, give different ideas: ${avoidPrev.join(', ')}.` : ''}
+Give 3 realistic options a busy person could actually make or buy in Canada (home meals, grocery or common takeout), sized so the rest of the day still fits. Prioritize protein and fullness. If calories left are low, suggest light, high-protein options; never suggest skipping meals, crash dieting or going under about 1,500 calories for the day.
+Reply with JSON only: {"tip": "one short sentence about today's balance", "items": [{"name": "meal with rough portion, max 50 characters", "cal": integer, "p": integer grams protein, "c": integer, "f": integer, "why": "max 6 words"}]}`;
+  try {
+    const r = await aiApi.json(prompt);
+    const items = (Array.isArray(r && r.items) ? r.items : []).slice(0, 4).map(i => ({name:String(i.name || '').slice(0, 60), cal:Math.round(num(i.cal)), p:Math.round(num(i.p)), c:Math.round(num(i.c)), f:Math.round(num(i.f)), why:String(i.why || '').slice(0, 50)})).filter(i => i.name);
+    if (!items.length) throw new Error('empty');
+    put('sugg', {kind:'sugg', date:d, meal, eaten:foods.length, tip:String((r && r.tip) || '').slice(0, 160), items});
+  } catch(e) { console.error(e); toast('Couldn’t get ideas right now — try again.'); }
+  S.suggBusy = false; render();
+}
+
 /* ---------- photo-only food logging ---------- */
 async function photoMeal(meal, blob){
   const job = {meal, blob, url:URL.createObjectURL(blob), err:''}; S.mealJob = job; openModal('mealPic');
@@ -1463,6 +1512,7 @@ MODALS.settings = () => {
   const fld = (k, l, step) => `<div><label class="f">${l}</label><input type="number" inputmode="decimal" step="${step||1}" data-st="${k}" value="${esc(st[k])}"></div>`;
   return `<div class="sh"><b>Goals & settings</b><button class="btn" data-a="saveSettings">Save</button></div>
     <div class="grid2">${fld('startWeight','Starting weight (lb)',0.1)}${fld('goalWeight','Goal weight (lb)',0.1)}${fld('calTarget','Daily calories')}${fld('proteinTarget','Daily protein (g)')}${fld('waterTarget','Water (glasses)')}${fld('sleepTarget','Sleep (hours)',0.25)}${fld('stepsTarget','Daily steps',500)}</div>
+    <div class="sec"><label class="f">Foods you don’t eat</label><input id="stAvoid" placeholder="e.g. beef, pork, shellfish" value="${esc(st.avoidFoods || '')}"></div>
     <div class="sec card" style="margin-top:16px"><h3>Back up your data</h3><div class="note">Copies everything as text you can paste into a note or email to yourself.</div>
       <button class="btn2 full sec" data-a="copyExport">Copy backup</button>
       <div class="sec"><label class="f">Restore from a backup</label><textarea id="impIn" placeholder="Paste a backup here"></textarea><button class="btn2 full sec" data-a="doImport">Restore</button></div></div>
@@ -1698,6 +1748,8 @@ const A = {
   recPick: a => { S.recPick = S.recPick === a.dataset.v ? null : a.dataset.v; render(); },
   recAdd: a => { const k = S.recPick; if (!k) return; const d = dayDoc(S.date); d.rec = [...(d.rec || []), {t:k, m:+a.dataset.v, ts:Date.now()}]; put('d_'+S.date, d); S.recPick = null; const R = REC.find(x => x[0] === k); toast(`${R[1]} ${R[2]} logged — ${a.dataset.v} min`); },
   recRm: a => { const d = dayDoc(S.date); d.rec = (d.rec || []).filter((_, i) => i !== +a.dataset.i); put('d_'+S.date, d); },
+  suggest: () => suggestFood(),
+  ateSugg: a => { const sg = S.docs.get('sugg'), it = sg && sg.items[+a.dataset.i]; if (!it) return; put('f_' + uid36(), {kind:'food', date:S.date, meal:sg.meal, name:it.name, cal:it.cal, p:it.p, c:it.c, f:it.f, ts:Date.now()}); toast(`Added to ${sg.meal}`); },
   foodDay: a => { S.date = a.dataset.v; render(); window.scrollTo(0, 0); },
   balSpan: a => { S.balSpan = +a.dataset.v; render(); },
   calMonth: a => { S.calMonth = a.dataset.v; render(); },
@@ -1782,6 +1834,7 @@ const A = {
   saveSettings: () => {
     const st = settings();
     document.querySelectorAll('[data-st]').forEach(i => { const v = num(i.value); if (v > 0) st[i.dataset.st] = v; });
+    const av = $('#stAvoid'); if (av) st.avoidFoods = av.value.trim().slice(0, 200);
     put('settings', {...st, kind:'settings'}); toast('Goals saved'); closeModal();
   },
   copyExport: async () => {
