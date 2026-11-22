@@ -278,14 +278,16 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .mt .mr{font-size:10px;font-weight:800;color:var(--act);background:#eef8c8;border-radius:999px;padding:0 6px;margin-top:2px}
 .mt.on{border-color:#9ccc1a;background:#f3fbd9}
 .mt.on .ml{color:var(--act)}
+.qr{display:flex;gap:6px;margin:-2px 0 4px 36px}
+.qr .chip{padding:5px 12px;font-size:13px}
 .gr{display:flex;gap:10px;align-items:center}
 .gic{font-size:20px;width:26px;text-align:center}
 .gdone{color:var(--act)!important;font-weight:800}
 .gh{font-size:14px;font-weight:800;color:var(--tx);margin-bottom:6px}
-.lg{display:grid;grid-template-columns:1fr 70px auto auto;gap:6px;align-items:center;margin-top:6px}
+.lg{display:grid;grid-template-columns:1fr 58px auto auto;gap:6px;align-items:center;margin-top:6px}
 .lg input{padding:9px 10px}
 .lgu{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.lgu button{background:none;border:0;padding:9px 8px;font-size:13px;color:var(--mu)}
+.lgu button{background:none;border:0;padding:9px 6px;font-size:12px;color:var(--mu);white-space:nowrap}
 .lgu button.on{background:var(--ac);color:#12160a;font-weight:700}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
@@ -969,6 +971,7 @@ VIEWS.prog = () => {
 
   h += calendarCard(S.calMonth || t.slice(0, 7), true);
   h += balanceCard();
+  (st.liftGoals || []).filter(g => g.unit === 'day').forEach(g => { h += dailyChart(g); });
 
   // food 14 days
   const days14 = Array.from({length:14}, (_, i) => addDays(t, i-13));
@@ -1552,6 +1555,28 @@ function liftBest(ex, unit){
   workouts().forEach(w => (w.exercises || []).forEach(e => { if ((e.name || '').toLowerCase() !== n) return; (e.sets || []).forEach(x => { const v = unit === 'reps' ? num(x.r) : (num(x.r) > 0 ? num(x.w) : 0); if (v > best) best = v; }); }));
   return best;
 }
+function dayReps(ex, d){ const n = ex.toLowerCase(); let t = 0; workouts().filter(w => w.date === d).forEach(w => (w.exercises || []).forEach(e => { if ((e.name || '').toLowerCase() === n) (e.sets || []).forEach(x => t += num(x.r)); })); return t; }
+function quickReps(ex, n){
+  const d = today(); let w = dayWorkout(d), id = w ? w.id : 'wo_' + uid36();
+  w = w ? JSON.parse(JSON.stringify(w)) : {kind:'workout', date:d, ts:Date.now(), name:'', exercises:[], parts:[]};
+  delete w.id; w.parts = w.parts || []; w.exercises = w.exercises || [];
+  let e = w.exercises.find(x => (x.name || '').toLowerCase() === ex.toLowerCase());
+  if (!e) { e = {name:ex, sets:[]}; w.exercises.push(e); }
+  e.each = true; e.sets = (e.sets || []).filter(x => num(x.r) > 0 || num(x.w) > 0); e.sets.push({w:'', r:n});
+  (EX_PARTS[ex] || []).forEach(p => { if (!w.parts.includes(p)) w.parts.push(p); });
+  w.name = autoName(w.parts) || w.name; put(id, w);
+}
+function dailyChart(g){
+  const t = today(), days = Array.from({length:21}, (_, i) => addDays(t, i - 20)), vals = days.map(d => dayReps(g.ex, d));
+  const done = vals.filter(v => v > 0), hit = vals.filter(v => v >= g.target).length, best = Math.max(0, ...vals);
+  const first = vals.findIndex(v => v > 0), lastWk = vals.slice(-7).filter(v => v > 0), prevWk = vals.slice(-14, -7).filter(v => v > 0);
+  const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
+  const trend = lastWk.length && prevWk.length ? avg(lastWk) - avg(prevWk) : null;
+  return `<div class="card"><div class="ch"><h3>${esc(g.ex)} per day</h3><span class="mu">goal ${g.target}</span></div>
+    ${barChart(days.map((d, i) => ({label:parseYmd(d).toLocaleDateString(undefined, {day:'numeric'}), v:vals[i]})), {target:g.target, color:'var(--ac)', h:150})}
+    <div class="kv sec"><div><b>${vals[20]}</b><span>today</span></div><div><b>${best}</b><span>best day</span></div><div><b>${avg(done)}</b><span>avg / day</span></div><div><b>${hit}</b><span>days hit</span></div></div>
+    <div class="note">${trend == null ? (first < 0 ? 'Log reps to start your chart.' : 'Keep logging — your trend shows after two weeks.') : trend >= 0 ? `📈 Up ${trend} a day vs last week.` : `📉 Down ${-trend} a day vs last week.`} ${best >= g.target ? '' : `${g.target - best} more than your best day to hit ${g.target}.`}</div></div>`;
+}
 function goalRow(ic, label, cur, target, unit){
   const pct = target > 0 ? clamp(cur / target * 100, 0, 100) : 0, done = target > 0 && cur >= target;
   return `<div class="gr"><span class="gic">${ic}</span><div class="bmain"><div class="bh"><b>${label}</b><span class="${done ? 'gdone' : ''}">${done ? '✓ ' : ''}${round(cur, 1)} / ${round(target, 1)} ${unit}</span></div><div class="sbar"><i style="width:${Math.max(pct, cur > 0 ? 4 : 0)}%"></i></div></div></div>`;
@@ -1561,7 +1586,9 @@ function goalsCard(){
   let rows = '';
   if (num(st.goalWeight) && num(st.startWeight) && lw) { const need = st.startWeight - st.goalWeight; rows += goalRow('⚖️', `Weight → ${st.goalWeight} lb`, Math.max(0, st.startWeight - num(lw.lbs)), need, 'lb lost'); }
   WEEKLY.forEach(([k, ic, l]) => { if (num(st[k])) rows += goalRow(ic, `${l} this week`, wc[k], num(st[k]), k === 'gymPerWeek' ? 'days' : 'times'); });
-  (st.liftGoals || []).forEach(g => { rows += goalRow(g.unit === 'reps' ? '💪' : '🏋️', g.ex, liftBest(g.ex, g.unit), num(g.target), g.unit === 'reps' ? 'reps' : 'lb'); });
+  (st.liftGoals || []).forEach((g, i) => {
+    if (g.unit === 'day') { rows += goalRow('💯', `${g.ex} today`, dayReps(g.ex, today()), num(g.target), 'reps') + `<div class="qr">${[10,20,25,30].map(n => `<button class="chip" data-a="qReps" data-i="${i}" data-v="${n}">+${n}</button>`).join('')}</div>`; return; }
+    rows += goalRow(g.unit === 'reps' ? '💪' : '🏋️', g.ex, liftBest(g.ex, g.unit), num(g.target), g.unit === 'reps' ? 'reps' : 'lb'); });
   return `<div class="card"><div class="ch"><h3>My goals</h3><button class="btn2" style="padding:7px 12px" data-a="editGoals">Edit</button></div>
     ${rows ? `<div class="bal">${rows}</div>` : `<div class="empty">No goals yet. Tap Edit to set weight, food, weekly and strength goals.</div>`}</div>`;
 }
@@ -1577,9 +1604,9 @@ MODALS.goals = () => {
     <label class="f gh sec">😴 Sleep</label><div class="grid2">${fld('sleepTarget','Hours a night',0.25)}</div>
     <label class="f gh sec">📅 Each week</label><div class="grid2">${WEEKLY.map(([k, ic, l]) => fld(k, `${ic} ${l}`, 1, '0')).join('')}</div>
     <label class="f gh sec">💪 Strength & reps</label>
-    ${S.gLifts.map((g, i) => `<div class="lg"><input data-gl="${i},ex" list="exlist" placeholder="Exercise, e.g. Push-up" value="${esc(g.ex)}"><input data-gl="${i},target" type="number" inputmode="decimal" placeholder="Goal" value="${esc(g.target)}"><div class="lgu"><button class="${g.unit !== 'reps' ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="lb">lb</button><button class="${g.unit === 'reps' ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="reps">reps</button></div><button class="x" data-a="gRm" data-i="${i}">✕</button></div>`).join('')}
-    <div class="chips" style="margin-top:8px"><button class="chip" data-a="gAdd" data-v="Push-up|reps">+ Push-ups</button><button class="chip" data-a="gAdd" data-v="Squat|lb">+ Squat</button><button class="chip" data-a="gAdd" data-v="Bench Press|lb">+ Bench</button><button class="chip" data-a="gAdd" data-v="Deadlift|lb">+ Deadlift</button><button class="chip" data-a="gAdd" data-v="Pull-up|reps">+ Pull-ups</button><button class="chip" data-a="gAdd" data-v="|lb">+ Other</button></div>
-    <div class="note">Lift goals track your heaviest set; rep goals track your most reps in one set.</div>`;
+    ${S.gLifts.map((g, i) => `<div class="lg"><input data-gl="${i},ex" list="exlist" placeholder="Exercise, e.g. Push-up" value="${esc(g.ex)}"><input data-gl="${i},target" type="number" inputmode="decimal" placeholder="Goal" value="${esc(g.target)}"><div class="lgu"><button class="${g.unit === 'lb' || !g.unit ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="lb">lb</button><button class="${g.unit === 'reps' ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="reps">1 set</button><button class="${g.unit === 'day' ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="day">a day</button></div><button class="x" data-a="gRm" data-i="${i}">✕</button></div>`).join('')}
+    <div class="chips" style="margin-top:8px"><button class="chip" data-a="gAdd" data-v="Push-up|day">+ Push-ups a day</button><button class="chip" data-a="gAdd" data-v="Squat|lb">+ Squat</button><button class="chip" data-a="gAdd" data-v="Bench Press|lb">+ Bench</button><button class="chip" data-a="gAdd" data-v="Deadlift|lb">+ Deadlift</button><button class="chip" data-a="gAdd" data-v="Pull-up|reps">+ Pull-ups</button><button class="chip" data-a="gAdd" data-v="|lb">+ Other</button></div>
+    <div class="note"><b>lb</b> = heaviest set · <b>1 set</b> = most reps in one set · <b>a day</b> = total reps in a day (charted on Progress).</div>`;
 };
 
 /* ---------- crew ---------- */
@@ -1898,6 +1925,7 @@ const A = {
   sameSets: a => { const ex = S.wo.exercises[+a.dataset.i]; ex.each = false; const f = ex.sets[0] || {w:'', r:''}; ex.sets = ex.sets.map(() => ({w:f.w, r:f.r})); saveWo(); renderModal(); },
   rmSet: a => { const ex = S.wo.exercises[+a.dataset.i]; ex.sets.splice(+a.dataset.j, 1); saveWo(); renderModal(); },
   editGoals: () => openGoals(),
+  qReps: a => { const g = (settings().liftGoals || [])[+a.dataset.i]; if (!g) return; quickReps(g.ex, +a.dataset.v); const tot = dayReps(g.ex, today()); toast(tot >= g.target ? `🎉 ${tot} ${g.ex.toLowerCase()}s — goal hit!` : `${tot} / ${g.target} today`); },
   gAdd: a => { const [ex, unit] = a.dataset.v.split('|'); S.gLifts.push({ex, target:'', unit}); renderModal(); },
   gRm: a => { S.gLifts.splice(+a.dataset.i, 1); renderModal(); },
   gUnit: a => { S.gLifts[+a.dataset.i].unit = a.dataset.v; renderModal(); },
@@ -1907,7 +1935,7 @@ const A = {
     ['startWeight','goalWeight','calTarget','proteinTarget','sleepTarget', ...WEEKLY.map(w => w[0])].forEach(k => { const v = num(dr[k]); st[k] = v > 0 ? v : (['calTarget','proteinTarget','sleepTarget'].includes(k) ? st[k] : null); });
     st.avoidFoods = String(dr.avoidFoods || '').trim().slice(0, 200);
     if (!num(st.goalWeight)) return toast('Add your goal weight.');
-    st.liftGoals = S.gLifts.map(g => ({ex:String(g.ex || '').trim().slice(0, 40), target:num(g.target), unit:g.unit === 'reps' ? 'reps' : 'lb'})).filter(g => g.ex && g.target > 0)
+    st.liftGoals = S.gLifts.map(g => ({ex:String(g.ex || '').trim().slice(0, 40), target:num(g.target), unit:['reps','day'].includes(g.unit) ? g.unit : 'lb'})).filter(g => g.ex && g.target > 0)
       .map(g => ({...g, ex: exNames().find(n => n.toLowerCase() === g.ex.toLowerCase()) || g.ex}));
     S.setup = false; S.gDraft = null; put('settings', {...st, kind:'settings'}); toast('Goals saved 🎯'); closeModal();
   },
