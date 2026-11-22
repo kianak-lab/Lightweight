@@ -278,6 +278,15 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .mt .mr{font-size:10px;font-weight:800;color:var(--act);background:#eef8c8;border-radius:999px;padding:0 6px;margin-top:2px}
 .mt.on{border-color:#9ccc1a;background:#f3fbd9}
 .mt.on .ml{color:var(--act)}
+.gr{display:flex;gap:10px;align-items:center}
+.gic{font-size:20px;width:26px;text-align:center}
+.gdone{color:var(--act)!important;font-weight:800}
+.gh{font-size:14px;font-weight:800;color:var(--tx);margin-bottom:6px}
+.lg{display:grid;grid-template-columns:1fr 70px auto auto;gap:6px;align-items:center;margin-top:6px}
+.lg input{padding:9px 10px}
+.lgu{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.lgu button{background:none;border:0;padding:9px 8px;font-size:13px;color:var(--mu)}
+.lgu button.on{background:var(--ac);color:#12160a;font-weight:700}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -473,7 +482,7 @@ function startApp(session){
     S.docs = m;
     const first = !S.loaded; S.loaded = true; clearTimeout(t); banner('');
     if (first) setTimeout(mergeDayDupes, 600);
-    if (first && !num((S.docs.get('settings') || {}).goalWeight)) setTimeout(() => { if (!S.modal) { S.setup = true; openModal('settings'); } }, 1200);
+    if (first && !num((S.docs.get('settings') || {}).goalWeight)) setTimeout(() => { if (!S.modal) { S.setup = true; openGoals(); } }, 1200);
     if (first && S.pendingImport) setTimeout(() => openModal('importOld'), 300);
     scheduleRender(); scheduleCrewSync();
   }, err => { clearTimeout(t); S.loaded = true; banner('Couldn’t load your data. Check your connection and reopen the app.'); scheduleRender(); });
@@ -828,6 +837,7 @@ VIEWS.today = () => {
     <div class="stat"><div class="k">Streak</div><div class="v">${streak}<small> day${streak===1?'':'s'}</small></div></div>
     <div class="stat"><div class="k">Weight</div><div class="v">${lw ? round(lw.lbs,1) : '—'}<small> lb</small></div></div>
     <div class="stat"><div class="k">To goal</div><div class="v">${lw && num(st.goalWeight) ? Math.max(0, round(lw.lbs - st.goalWeight, 1)) : '—'}<small> lb</small></div></div></div>`;
+  if (d === today()) h += goalsCard();
 
   let chg = '';
   if (w && wk && wk.date !== w.date) { const c = round(num(w.lbs) - num(wk.lbs), 1); chg = `<div class="note">${c > 0 ? '+' : ''}${c} lb vs ${fmtDate(wk.date, {month:'short', day:'numeric'})}</div>`; }
@@ -1520,14 +1530,56 @@ Reply with JSON only, exactly this shape: {"name": "short meal name, max 40 char
 MODALS.settings = () => {
   const st = settings();
   const fld = (k, l, step) => `<div><label class="f">${l}</label><input type="number" inputmode="decimal" step="${step||1}" data-st="${k}" value="${esc(st[k])}"></div>`;
-  return `<div class="sh"><b>${S.setup ? 'Set your goals' : 'Goals & settings'}</b><button class="btn" data-a="saveSettings">Save</button></div>${S.setup ? '<div class="note" style="font-size:15px;margin:-4px 0 10px">Tell the app where you’re starting and where you want to get to. Food targets, the AI coach and your progress all use these.</div>' : ''}
-    <div class="grid2">${fld('startWeight','Starting weight (lb)',0.1)}${fld('goalWeight','Goal weight (lb)',0.1)}${fld('calTarget','Daily calories')}${fld('proteinTarget','Daily protein (g)')}${fld('sleepTarget','Sleep (hours)',0.25)}</div>
-    <div class="sec"><label class="f">Foods you don’t eat</label><input id="stAvoid" placeholder="e.g. beef, pork, shellfish" value="${esc(st.avoidFoods || '')}"></div>
+  return `<div class="sh"><b>Settings</b><button class="btn2" data-a="closeModal">Close</button></div>
+    <button class="btn full" data-a="editGoals">🎯 Edit my goals</button>
     <div class="sec card" style="margin-top:16px"><h3>Back up your data</h3><div class="note">Copies everything as text you can paste into a note or email to yourself.</div>
       <button class="btn2 full sec" data-a="copyExport">Copy backup</button>
       <div class="sec"><label class="f">Restore from a backup</label><textarea id="impIn" placeholder="Paste a backup here"></textarea><button class="btn2 full sec" data-a="doImport">Restore</button></div></div>
     <div class="note">${S.mode === 'cloud' ? `Signed in as <b>${esc(S.myName || 'you')}</b>. Your log is private to you; the crew only sees your crew card.` : 'Data is saved on this phone only.'}</div>
     ${installBtn()}<button class="btn2 full sec" data-a="signOut">Sign out</button><div class="note">To get back in, type the same name.</div>`;
+};
+
+/* ---------- goals ---------- */
+const WEEKLY = [['gymPerWeek','🏋️','Gym days'],['saunaPerWeek','🔥','Sauna'],['coldPerWeek','🧊','Cold plunge'],['medPerWeek','🧘','Meditation']];
+function weekCounts(){
+  const ws = weekStart(today()), days = Array.from({length:7}, (_, i) => addDays(ws, i)).filter(d => d <= today());
+  const gym = new Set(workouts().filter(w => w.date >= ws && w.date <= today()).map(w => w.date)).size;
+  const rc = t => days.reduce((a, d) => a + recOf(d).filter(r => r.t === t).length, 0);
+  return {gymPerWeek:gym, saunaPerWeek:rc('sauna'), coldPerWeek:rc('cold'), medPerWeek:rc('med')};
+}
+function liftBest(ex, unit){
+  const n = ex.toLowerCase(); let best = 0;
+  workouts().forEach(w => (w.exercises || []).forEach(e => { if ((e.name || '').toLowerCase() !== n) return; (e.sets || []).forEach(x => { const v = unit === 'reps' ? num(x.r) : (num(x.r) > 0 ? num(x.w) : 0); if (v > best) best = v; }); }));
+  return best;
+}
+function goalRow(ic, label, cur, target, unit){
+  const pct = target > 0 ? clamp(cur / target * 100, 0, 100) : 0, done = target > 0 && cur >= target;
+  return `<div class="gr"><span class="gic">${ic}</span><div class="bmain"><div class="bh"><b>${label}</b><span class="${done ? 'gdone' : ''}">${done ? '✓ ' : ''}${round(cur, 1)} / ${round(target, 1)} ${unit}</span></div><div class="sbar"><i style="width:${Math.max(pct, cur > 0 ? 4 : 0)}%"></i></div></div></div>`;
+}
+function goalsCard(){
+  const st = settings(), wc = weekCounts(), lw = weightOnOrBefore(today());
+  let rows = '';
+  if (num(st.goalWeight) && num(st.startWeight) && lw) { const need = st.startWeight - st.goalWeight; rows += goalRow('⚖️', `Weight → ${st.goalWeight} lb`, Math.max(0, st.startWeight - num(lw.lbs)), need, 'lb lost'); }
+  WEEKLY.forEach(([k, ic, l]) => { if (num(st[k])) rows += goalRow(ic, `${l} this week`, wc[k], num(st[k]), k === 'gymPerWeek' ? 'days' : 'times'); });
+  (st.liftGoals || []).forEach(g => { rows += goalRow(g.unit === 'reps' ? '💪' : '🏋️', g.ex, liftBest(g.ex, g.unit), num(g.target), g.unit === 'reps' ? 'reps' : 'lb'); });
+  return `<div class="card"><div class="ch"><h3>My goals</h3><button class="btn2" style="padding:7px 12px" data-a="editGoals">Edit</button></div>
+    ${rows ? `<div class="bal">${rows}</div>` : `<div class="empty">No goals yet. Tap Edit to set weight, food, weekly and strength goals.</div>`}</div>`;
+}
+function openGoals(){ const st = settings(); S.gLifts = JSON.parse(JSON.stringify(st.liftGoals || [])); S.gDraft = {...st}; openModal('goals'); }
+MODALS.goals = () => {
+  const st = S.gDraft || settings();
+  const fld = (k, l, step, ph) => `<div><label class="f">${l}</label><input type="number" inputmode="decimal" step="${step||1}" data-g="${k}" placeholder="${ph || ''}" value="${num(st[k]) ? esc(st[k]) : ''}"></div>`;
+  return `<div class="sh"><b>${S.setup ? 'Set your goals' : 'My goals'}</b><button class="btn" data-a="saveGoals">Save</button></div>
+    ${S.setup ? '<div class="note" style="font-size:15px;margin:-4px 0 10px">Set what you’re working toward. You can change these anytime from the My goals card on Today.</div>' : ''}
+    <label class="f gh">⚖️ Weight</label><div class="grid2">${fld('startWeight','Starting weight (lb)',0.1)}${fld('goalWeight','Goal weight (lb)',0.1)}</div>
+    <label class="f gh sec">🍽️ Diet</label><div class="grid2">${fld('calTarget','Calories a day')}${fld('proteinTarget','Protein a day (g)')}</div>
+    <div style="margin-top:8px"><label class="f">Foods you don’t eat</label><input id="gAvoid" data-gav="1" placeholder="e.g. beef, pork, shellfish" value="${esc(st.avoidFoods || '')}"></div>
+    <label class="f gh sec">😴 Sleep</label><div class="grid2">${fld('sleepTarget','Hours a night',0.25)}</div>
+    <label class="f gh sec">📅 Each week</label><div class="grid2">${WEEKLY.map(([k, ic, l]) => fld(k, `${ic} ${l}`, 1, '0')).join('')}</div>
+    <label class="f gh sec">💪 Strength & reps</label>
+    ${S.gLifts.map((g, i) => `<div class="lg"><input data-gl="${i},ex" list="exlist" placeholder="Exercise, e.g. Push-up" value="${esc(g.ex)}"><input data-gl="${i},target" type="number" inputmode="decimal" placeholder="Goal" value="${esc(g.target)}"><div class="lgu"><button class="${g.unit !== 'reps' ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="lb">lb</button><button class="${g.unit === 'reps' ? 'on' : ''}" data-a="gUnit" data-i="${i}" data-v="reps">reps</button></div><button class="x" data-a="gRm" data-i="${i}">✕</button></div>`).join('')}
+    <div class="chips" style="margin-top:8px"><button class="chip" data-a="gAdd" data-v="Push-up|reps">+ Push-ups</button><button class="chip" data-a="gAdd" data-v="Squat|lb">+ Squat</button><button class="chip" data-a="gAdd" data-v="Bench Press|lb">+ Bench</button><button class="chip" data-a="gAdd" data-v="Deadlift|lb">+ Deadlift</button><button class="chip" data-a="gAdd" data-v="Pull-up|reps">+ Pull-ups</button><button class="chip" data-a="gAdd" data-v="|lb">+ Other</button></div>
+    <div class="note">Lift goals track your heaviest set; rep goals track your most reps in one set.</div>`;
 };
 
 /* ---------- crew ---------- */
@@ -1845,6 +1897,20 @@ const A = {
   eachSet: a => { S.wo.exercises[+a.dataset.i].each = true; renderModal(); },
   sameSets: a => { const ex = S.wo.exercises[+a.dataset.i]; ex.each = false; const f = ex.sets[0] || {w:'', r:''}; ex.sets = ex.sets.map(() => ({w:f.w, r:f.r})); saveWo(); renderModal(); },
   rmSet: a => { const ex = S.wo.exercises[+a.dataset.i]; ex.sets.splice(+a.dataset.j, 1); saveWo(); renderModal(); },
+  editGoals: () => openGoals(),
+  gAdd: a => { const [ex, unit] = a.dataset.v.split('|'); S.gLifts.push({ex, target:'', unit}); renderModal(); },
+  gRm: a => { S.gLifts.splice(+a.dataset.i, 1); renderModal(); },
+  gUnit: a => { S.gLifts[+a.dataset.i].unit = a.dataset.v; renderModal(); },
+  saveGoals: () => {
+    const st = settings();
+    const dr = S.gDraft || {};
+    ['startWeight','goalWeight','calTarget','proteinTarget','sleepTarget', ...WEEKLY.map(w => w[0])].forEach(k => { const v = num(dr[k]); st[k] = v > 0 ? v : (['calTarget','proteinTarget','sleepTarget'].includes(k) ? st[k] : null); });
+    st.avoidFoods = String(dr.avoidFoods || '').trim().slice(0, 200);
+    if (!num(st.goalWeight)) return toast('Add your goal weight.');
+    st.liftGoals = S.gLifts.map(g => ({ex:String(g.ex || '').trim().slice(0, 40), target:num(g.target), unit:g.unit === 'reps' ? 'reps' : 'lb'})).filter(g => g.ex && g.target > 0)
+      .map(g => ({...g, ex: exNames().find(n => n.toLowerCase() === g.ex.toLowerCase()) || g.ex}));
+    S.setup = false; S.gDraft = null; put('settings', {...st, kind:'settings'}); toast('Goals saved 🎯'); closeModal();
+  },
   saveSettings: () => {
     const st = settings();
     document.querySelectorAll('[data-st]').forEach(i => { const v = num(i.value); if (v > 0) st[i.dataset.st] = v; });
@@ -1887,6 +1953,9 @@ document.addEventListener('input', e => {
   }
   else if (t.dataset.fd && S.food) S.food[t.dataset.fd] = t.value;
   else if (t.dataset.pc && S.pic) S.pic.caption = t.value;
+  else if (t.dataset.g && S.gDraft) S.gDraft[t.dataset.g] = t.value;
+  else if (t.dataset.gav && S.gDraft) S.gDraft.avoidFoods = t.value;
+  else if (t.dataset.gl && S.gLifts) { const [i, k] = t.dataset.gl.split(','); S.gLifts[+i][k] = t.value; }
 });
 document.addEventListener('change', async e => {
   const t = e.target;
