@@ -280,6 +280,8 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .mt.on .ml{color:var(--act)}
 .qr{display:flex;gap:6px;margin:-2px 0 4px 36px}
 .qr .chip{padding:5px 12px;font-size:13px}
+.geta{font-size:12.5px;color:var(--mu);margin-top:3px}
+.geta b{color:var(--act)}
 .gr{display:flex;gap:10px;align-items:center}
 .gic{font-size:20px;width:26px;text-align:center}
 .gdone{color:var(--act)!important;font-weight:800}
@@ -1580,20 +1582,51 @@ function dailyChart(g){
   return `<div class="card"><div class="ch"><h3>${esc(g.ex)} per day</h3><span class="mu">goal ${g.target}</span></div>
     ${barChart(days.map((d, i) => ({label:parseYmd(d).toLocaleDateString(undefined, {day:'numeric'}), v:vals[i]})), {target:g.target, color:'var(--ac)', h:150})}
     <div class="kv sec"><div><b>${vals[20]}</b><span>today</span></div><div><b>${best}</b><span>best day</span></div><div><b>${avg(done)}</b><span>avg / day</span></div><div><b>${hit}</b><span>days hit</span></div></div>
-    <div class="note">${trend == null ? (first < 0 ? 'Log reps to start your chart.' : 'Keep logging — your trend shows after two weeks.') : trend >= 0 ? `📈 Up ${trend} a day vs last week.` : `📉 Down ${-trend} a day vs last week.`} ${best >= g.target ? '' : `${g.target - best} more than your best day to hit ${g.target}.`}</div></div>`;
+    <div class="note">${trend == null ? (first < 0 ? 'Log reps to start your chart.' : 'Keep logging — your trend shows after two weeks.') : trend >= 0 ? `📈 Up ${trend} a day vs last week.` : `📉 Down ${-trend} a day vs last week.`} ${best >= g.target ? '' : `${g.target - best} more than your best day to hit ${g.target}.`}<br>🎯 ${goalEta('lift', g)}</div></div>`;
 }
-function goalRow(ic, label, cur, target, unit){
+function projectDate(pts, target){
+  // straight-line trend through the points; date it crosses target
+  if (pts.length < 3 || pts[pts.length-1].x - pts[0].x < 5) return {msg:'log a few more days to see when'};
+  const n = pts.length, mx = pts.reduce((a, p) => a + p.x, 0) / n, my = pts.reduce((a, p) => a + p.y, 0) / n;
+  let nu = 0, de = 0; pts.forEach(p => { nu += (p.x - mx) * (p.y - my); de += (p.x - mx) ** 2; });
+  const slope = de ? nu / de : 0, todayX = dnum(today()) / DAY, nowY = my + slope * (todayX - mx);
+  const down = target < pts[0].y;
+  if ((down && slope >= -0.001) || (!down && slope <= 0.001)) return {msg:'not trending toward it yet — keep at it'};
+  const days = Math.ceil((target - nowY) / slope);
+  if (days <= 0) return {msg:'right on the edge — any day now'};
+  if (days > 730) return {msg:'over 2 years at this pace'};
+  const when = addDays(today(), days);
+  return {msg:`on pace for <b>${fmtDate(when, {month:'short', day:'numeric', year: when.slice(0,4) !== today().slice(0,4) ? 'numeric' : undefined})}</b>`, days};
+}
+function goalEta(kind, g){
+  const st = settings(), since = addDays(today(), -60);
+  if (kind === 'weight') {
+    const ws = all('weight').filter(w => num(w.lbs) > 0 && w.date >= since).sort(byDate);
+    const r = projectDate(ws.map(w => ({x:dnum(w.date)/DAY, y:num(w.lbs)})), num(st.goalWeight));
+    const rate = weeklyRate(all('weight').filter(w => num(w.lbs) > 0).sort(byDate));
+    return r.msg + (r.days && rate !== null ? ` · ${round(-rate, 1)} lb/week` : '');
+  }
+  if (g.unit === 'day') {
+    const pts = []; for (let i = 30; i >= 0; i--) { const d = addDays(today(), -i), v = dayReps(g.ex, d); if (v > 0) pts.push({x:dnum(d)/DAY, y:v}); }
+    return projectDate(pts, num(g.target)).msg;
+  }
+  const n = g.ex.toLowerCase(), pts = [];
+  workouts().filter(w => w.date >= since).forEach(w => { let b = 0; (w.exercises || []).forEach(e => { if ((e.name || '').toLowerCase() === n) (e.sets || []).forEach(x => { const v = g.unit === 'reps' ? num(x.r) : (num(x.r) > 0 ? num(x.w) : 0); if (v > b) b = v; }); }); if (b) pts.push({x:dnum(w.date)/DAY, y:b}); });
+  return projectDate(pts, num(g.target)).msg;
+}
+function goalRow(ic, label, cur, target, unit, eta){
   const pct = target > 0 ? clamp(cur / target * 100, 0, 100) : 0, done = target > 0 && cur >= target;
-  return `<div class="gr"><span class="gic">${ic}</span><div class="bmain"><div class="bh"><b>${label}</b><span class="${done ? 'gdone' : ''}">${done ? '✓ ' : ''}${round(cur, 1)} / ${round(target, 1)} ${unit}</span></div><div class="sbar"><i style="width:${Math.max(pct, cur > 0 ? 4 : 0)}%"></i></div></div></div>`;
+  return `<div class="gr"><span class="gic">${ic}</span><div class="bmain"><div class="bh"><b>${label}</b><span class="${done ? 'gdone' : ''}">${done ? '✓ ' : ''}${round(cur, 1)} / ${round(target, 1)} ${unit}</span></div><div class="sbar"><i style="width:${Math.max(pct, cur > 0 ? 4 : 0)}%"></i></div>${eta && !done ? `<div class="geta">🎯 ${eta}</div>` : ''}</div></div>`;
 }
 function goalsCard(){
   const st = settings(), wc = weekCounts(), lw = weightOnOrBefore(today());
   let rows = '';
-  if (num(st.goalWeight) && num(st.startWeight) && lw) { const need = st.startWeight - st.goalWeight; rows += goalRow('⚖️', `Weight → ${st.goalWeight} lb`, Math.max(0, st.startWeight - num(lw.lbs)), need, 'lb lost'); }
-  WEEKLY.forEach(([k, ic, l]) => { if (num(st[k])) rows += goalRow(ic, `${l} this week`, wc[k], num(st[k]), k === 'gymPerWeek' ? 'days' : 'times'); });
+  if (num(st.goalWeight) && num(st.startWeight) && lw) { const need = st.startWeight - st.goalWeight; rows += goalRow('⚖️', `Weight → ${st.goalWeight} lb`, Math.max(0, st.startWeight - num(lw.lbs)), need, 'lb lost', goalEta('weight')); }
+  const dLeft = 7 - ((new Date().getDay() + 6) % 7);
+  WEEKLY.forEach(([k, ic, l]) => { if (num(st[k])) { const left = num(st[k]) - wc[k]; rows += goalRow(ic, `${l} this week`, wc[k], num(st[k]), k === 'gymPerWeek' ? 'days' : 'times', left > dLeft ? `can’t fit ${left} more in ${dLeft} day${dLeft > 1 ? 's' : ''} — reset Monday` : (dLeft === 1 ? `${left} more today to hit it` : `${left} more in the next ${dLeft} days`)); } });
   (st.liftGoals || []).forEach((g, i) => {
-    if (g.unit === 'day') { rows += goalRow('💯', `${g.ex} today`, dayReps(g.ex, today()), num(g.target), 'reps') + `<div class="qr">${[10,20,25,30].map(n => `<button class="chip" data-a="qReps" data-i="${i}" data-v="${n}">+${n}</button>`).join('')}</div>`; return; }
-    rows += goalRow(g.unit === 'reps' ? '💪' : '🏋️', g.ex, liftBest(g.ex, g.unit), num(g.target), g.unit === 'reps' ? 'reps' : 'lb'); });
+    if (g.unit === 'day') { rows += goalRow('💯', `${g.ex} today`, dayReps(g.ex, today()), num(g.target), 'reps', goalEta('lift', g)) + `<div class="qr">${[10,20,25,30].map(n => `<button class="chip" data-a="qReps" data-i="${i}" data-v="${n}">+${n}</button>`).join('')}</div>`; return; }
+    rows += goalRow(g.unit === 'reps' ? '💪' : '🏋️', g.ex, liftBest(g.ex, g.unit), num(g.target), g.unit === 'reps' ? 'reps' : 'lb', goalEta('lift', g)); });
   return `<div class="card"><div class="ch"><h3>My goals</h3><button class="btn2" style="padding:7px 12px" data-a="editGoals">Edit</button></div>
     ${rows ? `<div class="bal">${rows}</div>` : `<div class="empty">No goals yet. Tap Edit to set weight, food, weekly and strength goals.</div>`}</div>`;
 }
