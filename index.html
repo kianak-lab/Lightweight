@@ -389,7 +389,7 @@ const uid36 = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 const e1rm = (w, r) => (w > 0 && r > 0) ? (r === 1 ? w : w * (1 + r/30)) : 0;
 const byDate = (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts||0) - (b.ts||0);
 
-const DEFAULTS = {startWeight:215, goalWeight:170, calTarget:2200, proteinTarget:180, waterTarget:8, sleepTarget:7.5, stepsTarget:8000, customExercises:[]};
+const DEFAULTS = {startWeight:null, goalWeight:null, calTarget:2000, proteinTarget:150, waterTarget:8, sleepTarget:7.5, stepsTarget:8000, customExercises:[]};
 const PRESET = ['Deadlift','Squat','Bench Press','Overhead Press','Barbell Row','Romanian Deadlift','Front Squat','Incline Bench Press','Pull-up','Chin-up','Lat Pulldown','Seated Cable Row','Dumbbell Bench Press','Dumbbell Shoulder Press','Dumbbell Row','Leg Press','Lunge','Bulgarian Split Squat','Leg Curl','Leg Extension','Hip Thrust','Bicep Curl','Hammer Curl','Tricep Pushdown','Skull Crusher','Dips','Face Pull','Lateral Raise','Shrug','Calf Raise','Farmer Carry','Plank','Back Extension'];
 const BIG = ['Deadlift','Squat','Bench Press','Overhead Press'];
 const MEALS = ['Breakfast','Lunch','Dinner','Snacks'];
@@ -410,7 +410,7 @@ const NAVLBL = {today:'Today', lift:'Workout', food:'Food', body:'Body', prog:'P
 const S = { docs:new Map(), tab:'today', date:today(), mode:'loading', col:null, sample:null, sampleImages:false, loaded:false, dirty:false, modal:null, progEx:null, sq:0, sqDate:null,
   db:null, uid:null, assets:null, crew:new Map(), pics:new Map(), picSubs:{}, crewLoaded:false, crewErr:false, crewMetric:'gym', memberId:null, joinAvatar:null, joinAvatarUrl:null, pic:null, busy:false };
 function all(kind){ const out = []; for (const [id, d] of S.docs) if (d && d.kind === kind) out.push({...d, id}); return out; }
-const settings = () => ({...DEFAULTS, ...(S.docs.get('settings') || {})});
+const settings = () => { const st = {...DEFAULTS, ...(S.docs.get('settings') || {})}; if (!num(st.startWeight)) { const fw = all('weight').filter(w => num(w.lbs) > 0).sort(byDate)[0]; st.startWeight = fw ? num(fw.lbs) : null; } return st; };
 const dayDoc = d => ({kind:'daily', date:d, ...(S.docs.get('d_'+d) || {})});
 function sumFood(list){ return list.reduce((t,f)=>({cal:t.cal+num(f.cal), p:t.p+num(f.p), c:t.c+num(f.c), f:t.f+num(f.f)}), {cal:0,p:0,c:0,f:0}); }
 function exNames(){ const s = settings(); return [...new Set([...PRESET, ...(s.customExercises||[])])]; }
@@ -473,6 +473,7 @@ function startApp(session){
     S.docs = m;
     const first = !S.loaded; S.loaded = true; clearTimeout(t); banner('');
     if (first) setTimeout(mergeDayDupes, 600);
+    if (first && !num((S.docs.get('settings') || {}).goalWeight)) setTimeout(() => { if (!S.modal) { S.setup = true; openModal('settings'); } }, 1200);
     if (first && S.pendingImport) setTimeout(() => openModal('importOld'), 300);
     scheduleRender(); scheduleCrewSync();
   }, err => { clearTimeout(t); S.loaded = true; banner('Couldn’t load your data. Check your connection and reopen the app.'); scheduleRender(); });
@@ -826,7 +827,7 @@ VIEWS.today = () => {
   let h = `<div class="stats3">
     <div class="stat"><div class="k">Streak</div><div class="v">${streak}<small> day${streak===1?'':'s'}</small></div></div>
     <div class="stat"><div class="k">Weight</div><div class="v">${lw ? round(lw.lbs,1) : '—'}<small> lb</small></div></div>
-    <div class="stat"><div class="k">To goal</div><div class="v">${lw ? Math.max(0, round(lw.lbs - st.goalWeight, 1)) : '—'}<small> lb</small></div></div></div>`;
+    <div class="stat"><div class="k">To goal</div><div class="v">${lw && num(st.goalWeight) ? Math.max(0, round(lw.lbs - st.goalWeight, 1)) : '—'}<small> lb</small></div></div></div>`;
 
   let chg = '';
   if (w && wk && wk.date !== w.date) { const c = round(num(w.lbs) - num(wk.lbs), 1); chg = `<div class="note">${c > 0 ? '+' : ''}${c} lb vs ${fmtDate(wk.date, {month:'short', day:'numeric'})}</div>`; }
@@ -936,9 +937,10 @@ VIEWS.prog = () => {
   const cur = ws[ws.length-1];
   let h = '';
   // weight
-  const lost = cur ? round(st.startWeight - num(cur.lbs), 1) : 0;
-  const toGo = cur ? round(num(cur.lbs) - st.goalWeight, 1) : null;
-  const span = st.startWeight - st.goalWeight;
+  const hasGoal = num(st.goalWeight) > 0;
+  const lost = cur && num(st.startWeight) ? round(st.startWeight - num(cur.lbs), 1) : 0;
+  const toGo = cur && hasGoal ? round(num(cur.lbs) - st.goalWeight, 1) : null;
+  const span = hasGoal ? st.startWeight - st.goalWeight : 0;
   const pct = cur && span > 0 ? clamp((st.startWeight - num(cur.lbs)) / span * 100, 0, 100) : 0;
   const rate = weeklyRate(ws);
   let proj = '';
@@ -950,9 +952,9 @@ VIEWS.prog = () => {
   const avgPts = recent.map(w => { const lo = addDays(w.date, -6); const win = ws.filter(x => x.date >= lo && x.date <= w.date); return {x:dnum(w.date), y:win.reduce((a,b)=>a+num(b.lbs),0)/win.length}; });
   h += `<div class="card"><div class="ch"><h3>Weight</h3><span class="mu">Last 90 days</span></div>
     <div class="grid3" style="margin-bottom:10px"><div><div class="mu">Now</div><div class="big">${cur ? round(num(cur.lbs),1) : '—'}</div></div><div><div class="mu">Lost</div><div class="big">${cur ? lost : '—'}</div></div><div><div class="mu">To go</div><div class="big">${toGo !== null ? Math.max(0,toGo) : '—'}</div></div></div>
-    <div class="prog">${bar(pct, 100, 'var(--ac)')}</div><div class="note">${round(pct)}% of the way from ${st.startWeight} to ${st.goalWeight} lb${rate !== null ? ` · ${rate > 0 ? '+' : ''}${round(rate,1)} lb/week (last 4 weeks)` : ''}</div>
+    <div class="prog">${bar(pct, 100, 'var(--ac)')}</div><div class="note">${hasGoal ? `${round(pct)}% of the way from ${st.startWeight} to ${st.goalWeight} lb` : 'Set a goal weight in ⚙️ settings to track progress'}${rate !== null ? ` · ${rate > 0 ? '+' : ''}${round(rate,1)} lb/week (last 4 weeks)` : ''}</div>
     ${proj ? `<div class="note">${proj}</div>` : ''}
-    <div style="margin-top:10px">${lineChart([{pts:recent.map(w => ({x:dnum(w.date), y:num(w.lbs)})), color:'#7a8292', dots:true, w:1, op:.8}, {pts:avgPts, color:'var(--ac)', w:2.5}], {goal: recent.length ? st.goalWeight : null, h:180})}</div>
+    <div style="margin-top:10px">${lineChart([{pts:recent.map(w => ({x:dnum(w.date), y:num(w.lbs)})), color:'#7a8292', dots:true, w:1, op:.8}, {pts:avgPts, color:'var(--ac)', w:2.5}], {goal: recent.length && hasGoal ? st.goalWeight : null, h:180})}</div>
     <div class="legend"><span><i style="background:#7a8292"></i>Daily</span><span><i style="background:var(--ac)"></i>7-day average</span></div></div>`;
 
   h += calendarCard(S.calMonth || t.slice(0, 7), true);
@@ -1239,7 +1241,7 @@ function eatNextCard(d, foods, tot, st){
     h += `${sg.tip ? `<div class="eattip">${esc(sg.tip)}</div>` : ''}<div class="list">${sg.items.map((it, i) => `<div class="it"><div class="main"><div class="nm"><b>${esc(it.name)}</b></div><div class="sm">${fmt(num(it.cal))} cal · ${fmt(num(it.p))} g protein${it.why ? ` · ${esc(it.why)}` : ''}</div></div><button class="btn2 ate" data-a="ateSugg" data-i="${i}">Ate it</button></div>`).join('')}</div>`;
   }
   h += `<button class="btn full sec" data-a="suggest" ${S.suggBusy ? 'disabled' : ''}>${S.suggBusy ? 'Thinking…' : sg && sg.date === d ? (fresh ? '🔄 Other ideas' : '✨ Update ideas') : '✨ Tell me what to eat'}</button>
-    <div class="note">Ideas to hit ${fmt(st.calTarget)} cal and ${fmt(st.proteinTarget)} g protein, on the way to ${st.goalWeight} lb.${st.avoidFoods ? ` Skips: ${esc(st.avoidFoods)}.` : ' Set foods you don’t eat in ⚙️ settings.'}</div></div>`;
+    <div class="note">Ideas to hit ${fmt(st.calTarget)} cal and ${fmt(st.proteinTarget)} g protein${num(st.goalWeight) ? `, on the way to ${st.goalWeight} lb` : ''}.${st.avoidFoods ? ` Skips: ${esc(st.avoidFoods)}.` : ' Set foods you don’t eat in ⚙️ settings.'}</div></div>`;
   return h;
 }
 async function suggestFood(){
@@ -1250,7 +1252,7 @@ async function suggestFood(){
   const prev = S.docs.get('sugg'), avoidPrev = prev && prev.date === d ? prev.items.map(i => i.name) : [];
   S.suggBusy = true; render();
   const prompt = `You are a practical nutrition coach inside a fitness tracking app. Suggest what this person should eat for their next meal so they stay on track for steady, healthy weight loss.
-Current weight: ${lw ? lw.lbs + ' lb' : 'unknown'}. Goal weight: ${st.goalWeight} lb. Daily target: ${st.calTarget} calories and ${st.proteinTarget} g protein.
+Current weight: ${lw ? lw.lbs + ' lb' : 'unknown'}. Goal weight: ${num(st.goalWeight) ? st.goalWeight + ' lb' : 'not set (aim for steady, healthy loss)'}. Daily target: ${st.calTarget} calories and ${st.proteinTarget} g protein.
 Eaten so far today: ${foods.length ? foods.map(f => `${f.meal}: ${f.name} (${Math.round(num(f.cal))} cal, ${Math.round(num(f.p))} g protein)`).join('; ') : 'nothing yet'}.
 Left for today: ${left} calories, ${pLeft} g protein. Next meal: ${meal}. Local time: ${nowHM()}.
 Foods they don't eat: ${st.avoidFoods || 'none listed'}. Never suggest those or anything containing them.
@@ -1518,8 +1520,8 @@ Reply with JSON only, exactly this shape: {"name": "short meal name, max 40 char
 MODALS.settings = () => {
   const st = settings();
   const fld = (k, l, step) => `<div><label class="f">${l}</label><input type="number" inputmode="decimal" step="${step||1}" data-st="${k}" value="${esc(st[k])}"></div>`;
-  return `<div class="sh"><b>Goals & settings</b><button class="btn" data-a="saveSettings">Save</button></div>
-    <div class="grid2">${fld('startWeight','Starting weight (lb)',0.1)}${fld('goalWeight','Goal weight (lb)',0.1)}${fld('calTarget','Daily calories')}${fld('proteinTarget','Daily protein (g)')}${fld('waterTarget','Water (glasses)')}${fld('sleepTarget','Sleep (hours)',0.25)}${fld('stepsTarget','Daily steps',500)}</div>
+  return `<div class="sh"><b>${S.setup ? 'Set your goals' : 'Goals & settings'}</b><button class="btn" data-a="saveSettings">Save</button></div>${S.setup ? '<div class="note" style="font-size:15px;margin:-4px 0 10px">Tell the app where you’re starting and where you want to get to. Food targets, the AI coach and your progress all use these.</div>' : ''}
+    <div class="grid2">${fld('startWeight','Starting weight (lb)',0.1)}${fld('goalWeight','Goal weight (lb)',0.1)}${fld('calTarget','Daily calories')}${fld('proteinTarget','Daily protein (g)')}${fld('sleepTarget','Sleep (hours)',0.25)}</div>
     <div class="sec"><label class="f">Foods you don’t eat</label><input id="stAvoid" placeholder="e.g. beef, pork, shellfish" value="${esc(st.avoidFoods || '')}"></div>
     <div class="sec card" style="margin-top:16px"><h3>Back up your data</h3><div class="note">Copies everything as text you can paste into a note or email to yourself.</div>
       <button class="btn2 full sec" data-a="copyExport">Copy backup</button>
@@ -1566,7 +1568,7 @@ function crewSummary(me){
   const lifts = {}; BIG.forEach(n => { const b = bestFor(n).best; if (b) lifts[n] = Math.round(b.e); });
   const sl = S.docs.get('s_'+t);
   return {day:t, streak:calcStreak(), gymWeek, gymMonth,
-    lost: (me.shareLost !== false && cur) ? round(st.startWeight - num(cur.lbs), 1) : null,
+    lost: (me.shareLost !== false && cur && num(st.startWeight)) ? round(st.startWeight - num(cur.lbs), 1) : null,
     cal:Math.round(tot.cal), p:Math.round(tot.p),
     foods:foods.slice(0,15).map(f => ({n:String(f.name || '').slice(0,50), c:Math.round(num(f.cal)), m:f.meal || ''})),
     last, lifts, sleep: sleepTotal(t) ? round(sleepTotal(t),1) : null, water:num((S.docs.get('d_'+t) || {}).water)};
@@ -1847,7 +1849,8 @@ const A = {
     const st = settings();
     document.querySelectorAll('[data-st]').forEach(i => { const v = num(i.value); if (v > 0) st[i.dataset.st] = v; });
     const av = $('#stAvoid'); if (av) st.avoidFoods = av.value.trim().slice(0, 200);
-    put('settings', {...st, kind:'settings'}); toast('Goals saved'); closeModal();
+    if (!num(st.goalWeight)) return toast('Add your goal weight.');
+    S.setup = false; put('settings', {...st, kind:'settings'}); toast('Goals saved'); closeModal();
   },
   copyExport: async () => {
     const txt = JSON.stringify({app:'health-tracker', v:1, exported:new Date().toISOString(), docs:Object.fromEntries(S.docs)});
