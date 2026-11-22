@@ -222,6 +222,7 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .vt{display:block;font-size:19px;font-weight:800;margin-top:4px}
 .vs{display:block;font-size:13px;color:var(--mu);margin-top:4px}
 .vlive{width:100%;font-size:15px;margin-top:6px;color:var(--tx);min-height:0}
+.on-rest{color:#b39dff!important;border-color:#3b3357!important}
 .restmsg{font-size:15px;color:#b39dff;margin-top:2px}
 .calg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .cdh{text-align:center;font-size:11px;color:var(--mu);font-weight:700;padding-bottom:2px}
@@ -642,7 +643,7 @@ function calendarCard(month, nav){
   const prev = ymd(new Date(y, m - 2, 1)).slice(0, 7), next = ymd(new Date(y, m, 1)).slice(0, 7);
   return `<div class="card"><div class="ch"><h3>${nav ? label : 'This month'}</h3>${nav ? `<div class="row"><button class="btn2 calnav" data-a="calMonth" data-v="${prev}">‹</button><button class="btn2 calnav" data-a="calMonth" data-v="${next}" ${next > t.slice(0, 7) ? 'disabled' : ''}>›</button></div>` : `<span class="mu">${label}</span>`}</div>
     <div class="calg">${['M','T','W','T','F','S','S'].map(x => `<div class="cdh">${x}</div>`).join('')}${cells}</div>
-    <div class="note">${nW} workout${nW === 1 ? '' : 's'}${nR ? ` · ${nR} rest day${nR === 1 ? '' : 's'}` : ''} · tap a day to open it</div></div>`;
+    <div class="note">${nW} workout${nW === 1 ? '' : 's'}${nR ? ` · ${nR} rest day${nR === 1 ? '' : 's'}` : ''} · tap any past day to fill it in</div></div>`;
 }
 
 /* ---------- charts ---------- */
@@ -1108,6 +1109,15 @@ Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": inte
 
 /* ---------- modals ---------- */
 const MODALS = {};
+MODALS.dayPick = () => {
+  const ds = S.pickDay, w = dayWorkout(ds), off = !!(S.docs.get('d_'+ds) || {}).off && !w, ps = (w && w.parts) || [];
+  const nEx = w ? (w.exercises || []).length : 0;
+  return `<div class="sh"><b>${esc(fmtDate(ds, {weekday:'long', month:'short', day:'numeric'}))}</b><button class="btn" data-a="closeModal">Done</button></div>
+    <div class="note" style="margin-top:-4px">${w ? `Logged: ${esc(autoName(ps) || w.name || 'workout')}${nEx ? ` · ${nEx} exercise${nEx > 1 ? 's' : ''}` : ''}` : off ? 'Logged as a rest day' : 'Nothing logged yet. Tap what you trained, or mark it a rest day.'}</div>
+    <label class="f sec">What did you train?</label>
+    <div class="parts">${PARTS.map(([k,l]) => `<button class="part ${ps.includes(k) ? 'on' : ''}" data-a="dpPart" data-v="${k}">${fig(k)}<span>${l}</span></button>`).join('')}</div>
+    <div class="grid2 sec"><button class="btn2" data-a="dpFull">+ Exercises & sets</button><button class="btn2 ${off ? 'on-rest' : ''}" data-a="dpRest">${off ? 'Undo rest day' : '😴 Rest day'}</button></div>`;
+};
 MODALS.mealPic = () => {
   const j = S.mealJob; if (!j) return '';
   return `<div class="sh"><b>${esc(j.meal)}</b><button class="btn2" data-a="closeModal">${j.err ? 'Close' : 'Cancel'}</button></div>
@@ -1536,7 +1546,23 @@ const A = {
   part: a => { const p = a.dataset.v, ps = S.wo.parts; const i = ps.indexOf(p); if (i >= 0) ps.splice(i, 1); else ps.push(p); a.classList.toggle('on', i < 0); S.wo.name = autoName(ps); const wn = $('#woName'); if (wn) wn.textContent = S.wo.name || 'Workout'; saveWo(); const ep = $('#exPick'); if (ep) ep.innerHTML = exPickHtml(); },
   woNow: a => { S.wo[a.dataset.k] = nowHM(); saveWo(0); renderModal(); },
   offDay: () => { const d = dayDoc(S.date); d.off = !d.off; put('d_'+S.date, d); toast(d.off ? 'Rest day logged 😴' : 'Rest day removed'); },
-  calDay: a => { S.date = a.dataset.v; S.tab = 'today'; render(); window.scrollTo(0, 0); },
+  calDay: a => { S.pickDay = a.dataset.v; openModal('dayPick'); },
+  dpPart: a => {
+    const ds = S.pickDay, p = a.dataset.v; let w = dayWorkout(ds), id = w ? w.id : 'wo_' + uid36();
+    w = w ? JSON.parse(JSON.stringify(w)) : {kind:'workout', date:ds, ts:Date.now(), name:'', exercises:[], parts:[]};
+    delete w.id; w.parts = w.parts || [];
+    const i = w.parts.indexOf(p); if (i >= 0) w.parts.splice(i, 1); else w.parts.push(p);
+    w.name = autoName(w.parts);
+    if (!w.parts.length && !(w.exercises || []).length) del(id); else put(id, w);
+    const dd = S.docs.get('d_'+ds); if (dd && dd.off && w.parts.length) put('d_'+ds, {...dd, off:false});
+    renderModal();
+  },
+  dpRest: () => {
+    const ds = S.pickDay, w = dayWorkout(ds), dd = {kind:'daily', date:ds, ...(S.docs.get('d_'+ds) || {})};
+    if (!dd.off && w) { if ((w.exercises || []).length) return toast('This day has exercises logged — open it to remove them first.'); del(w.id); }
+    dd.off = !dd.off; put('d_'+ds, dd); renderModal();
+  },
+  dpFull: () => { const ds = S.pickDay; S.date = ds; const w = dayWorkout(ds); if (w) openWorkout(w.id); else newWorkout(false); },
   calMonth: a => { S.calMonth = a.dataset.v; render(); },
   aiWo: () => { S.voiceType = false; aiWorkout(); },
   voice: () => voiceToggle(),
