@@ -662,9 +662,6 @@ VIEWS.today = () => {
     <div class="macro"><span>Protein</span>${bar(tot.p, st.proteinTarget, 'var(--pink)')}<span>${fmt(tot.p)} / ${fmt(st.proteinTarget)} g</span></div>
     <div class="note">Carbs ${fmt(tot.c)} g · Fat ${fmt(tot.f)} g · ${tot.cal <= st.calTarget ? fmt(st.calTarget - tot.cal) + ' cal left' : fmt(tot.cal - st.calTarget) + ' cal over'}</div></div>`;
 
-  h += `<div class="card"><div class="ch"><h3>Water</h3><span class="mu">${water} / ${st.waterTarget} glasses</span></div>
-    <div class="cups">${Array.from({length: Math.max(st.waterTarget, water)}, (_, i) => `<div class="cup ${i < water ? 'full' : ''}"></div>`).join('')}</div>
-    <div class="row"><button class="btn2" data-a="water" data-v="-1" aria-label="Remove a glass">−</button><button class="btn grow" data-a="water" data-v="1">+ Glass</button></div></div>`;
 
   { const nm = napMin(d), tot = sleepTotal(d);
   h += `<div class="card tap" data-a="tab" data-v="body"><div class="ch"><h3>Sleep</h3>${sl ? `<span class="mu">${'★'.repeat(num(sl.quality))}${'☆'.repeat(5 - num(sl.quality))}</span>` : ''}</div>
@@ -674,11 +671,6 @@ VIEWS.today = () => {
   if (wos.length) h += `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${woLine(x) || 'No sets yet'}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>`;
   h += `<button class="btn full" style="margin-top:8px" data-a="newWo">${wos.length ? 'Continue workout' : 'Start workout'}</button></div>`;
 
-  h += `<div class="card"><div class="ch"><h3>Daily check-in</h3></div>
-    <label class="f">Steps</label><input type="number" inputmode="numeric" data-c="steps" placeholder="Target ${fmt(st.stepsTarget)}" value="${day.steps ? esc(day.steps) : ''}">
-    <div class="sec"><label class="f">Energy</label><div class="scale">${[1,2,3,4,5].map(v => `<button class="chip ${num(day.energy)===v?'on':''}" data-a="rate" data-k="energy" data-v="${v}">${v}</button>`).join('')}</div></div>
-    <div class="sec"><label class="f">Mood</label><div class="scale">${[1,2,3,4,5].map(v => `<button class="chip ${num(day.mood)===v?'on':''}" data-a="rate" data-k="mood" data-v="${v}">${v}</button>`).join('')}</div></div>
-    <div class="sec"><label class="f">Notes</label><textarea data-c="notes" placeholder="How you felt, soreness, anything worth remembering">${esc(day.notes || '')}</textarea></div></div>`;
   return h;
 };
 
@@ -1136,8 +1128,7 @@ MODALS.workout = () => {
       ${ex.sets.map((s, j) => `<tr><td class="n">${j+1}</td><td><input type="number" inputmode="decimal" step="2.5" data-set="${i},${j},w" value="${esc(s.w)}" placeholder="0"></td><td><input type="number" inputmode="numeric" data-set="${i},${j},r" value="${esc(s.r)}" placeholder="0"></td><td class="e" id="e_${i}_${j}">${!CARDIO.has(ex.name) && e1rm(num(s.w), num(s.r)) ? round(e1rm(num(s.w), num(s.r))) : ''}</td><td><button class="x" data-a="rmSet" data-i="${i}" data-j="${j}" aria-label="Remove set">✕</button></td></tr>`).join('')}
       </table><button class="lnk" data-a="addSet" data-i="${i}">+ Add set</button><button class="lnk" style="margin-left:14px" data-a="sameSets" data-i="${i}">Same for every set</button>` : quickSets(ex, i)}</div>`;
   });
-  h += `    <div class="sec"><label class="f">Notes</label><textarea data-wo="notes" placeholder="How it felt, form cues, pain…">${esc(w.notes || '')}</textarea></div>
-    <div class="note">Saves automatically as you go.</div>
+  h += `    <div class="note">Saves automatically as you go.</div>
     ${S.docs.has(S.woId) ? `<button class="btn2 full sec" data-a="delWo">Delete workout</button>` : ''}`;
   return h;
 };
