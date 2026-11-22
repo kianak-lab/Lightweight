@@ -232,6 +232,10 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .cd.w{background:linear-gradient(180deg,#3d4d16,#262f10);border-color:#6b8a1e}
 .cd.w b{color:#e8f7a8}.cd.w span{color:var(--ac)}
 .cd.r{background:#231f33;border-color:#3b3357}.cd.r span{color:#b39dff}
+.cfigs{display:flex;gap:1px;justify-content:center;font-style:normal}
+.cfigs svg{width:15px;height:24px}
+.cd em{font-style:normal;font-size:9px;color:var(--ac);font-weight:800;line-height:1}
+.cd.r span{font-size:15px}
 .cd.t{outline:2px solid var(--ac);outline-offset:1px}
 .cd.f{opacity:.35}
 .calnav{padding:6px 14px;font-size:18px}
@@ -636,7 +640,7 @@ function calendarCard(month, nav){
     const ds = `${month}-${pad(dd)}`, ws = byDay[ds] || [], off = !ws.length && !!(S.docs.get('d_'+ds) || {}).off;
     const parts = [...new Set(ws.flatMap(w => w.parts || []))];
     if (ws.length) nW++; if (off) nR++;
-    const ab = parts.length ? parts.slice(0, 2).map(p => PART_AB[p] || p.slice(0, 2).toUpperCase()).join(' ') + (parts.length > 2 ? ` +${parts.length - 2}` : '') : ws.length ? '✓' : off ? 'REST' : '';
+    const ab = parts.length ? `<i class="cfigs">${parts.slice(0, 2).map(p => fig(p)).join('')}</i>${parts.length > 2 ? `<em>+${parts.length - 2}</em>` : ''}` : ws.length ? '✓' : off ? '😴' : '';
     cells += `<button class="cd ${ws.length ? 'w' : ''} ${off ? 'r' : ''} ${ds === t ? 't' : ''} ${ds > t ? 'f' : ''}" data-a="calDay" data-v="${ds}" ${ds > t ? 'disabled' : ''}><b>${dd}</b><span>${ab}</span></button>`;
   }
   const label = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
