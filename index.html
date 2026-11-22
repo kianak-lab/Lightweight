@@ -211,6 +211,10 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+2){--c:79,195,247}
 main > .card:not(.sb):not(.ai):nth-of-type(5n+3){--c:52,211,153}
 main > .card:not(.sb):not(.ai):nth-of-type(5n+4){--c:179,157,255}
 main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
+.fthumb{width:46px;height:46px;border-radius:10px;object-fit:cover;flex:0 0 auto;border:1px solid var(--line)}
+.scan{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;font-weight:650;color:var(--ac)}
+.spin{width:18px;height:18px;border:2.5px solid #3a4150;border-top-color:var(--ac);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -684,8 +688,8 @@ VIEWS.food = () => {
     <div class="note">Carbs ${fmt(tot.c)} g · Fat ${fmt(tot.f)} g</div></div>`;
   for (const m of MEALS) {
     const items = foods.filter(f => (f.meal || 'Snacks') === m), t = sumFood(items);
-    h += `<div class="card"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><button class="btn2" data-a="openFood" data-v="${m}">+ Add</button></div></div>`;
-    h += items.length ? `<div class="list">${items.map(f => `<div class="it"><div class="main tap" data-a="editFood" data-id="${esc(f.id)}"><div class="nm">${esc(f.name)}</div><div class="sm">${fmt(num(f.cal))} cal · P ${fmt(num(f.p))} · C ${fmt(num(f.c))} · F ${fmt(num(f.f))}</div></div><button class="x" data-a="delDoc" data-id="${esc(f.id)}">Remove</button></div>`).join('')}</div>` : '';
+    h += `<div class="card"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${m}"></label></div></div>`;
+    h += items.length ? `<div class="list">${items.map(f => `<div class="it">${f.photo ? `<img class="fthumb" src="${blobUrl(f.photo)}" alt="" loading="lazy">` : ''}<div class="main tap" data-a="editFood" data-id="${esc(f.id)}"><div class="nm">${esc(f.name)}</div><div class="sm">${fmt(num(f.cal))} cal · P ${fmt(num(f.p))} · C ${fmt(num(f.c))} · F ${fmt(num(f.f))}</div></div><button class="x" data-a="delDoc" data-id="${esc(f.id)}">Remove</button></div>`).join('')}</div>` : '';
     h += `</div>`;
   }
   // recents
@@ -1002,8 +1006,40 @@ function setQuick(i, k, val){
   ex.sets = Array.from({length:n}, () => ({w, r}));
 }
 
+/* ---------- photo-only food logging ---------- */
+async function photoMeal(meal, blob){
+  const job = {meal, blob, url:URL.createObjectURL(blob), err:''}; S.mealJob = job; openModal('mealPic');
+  const up = assetsApi.upload(blob).then(r => r.id).catch(() => null);
+  try {
+    const r = await aiApi.json(`You estimate nutrition for a personal food log from a photo of a meal (${meal.toLowerCase()}).
+Identify every food and drink you can see and judge the portion sizes from the plate, bowl, packaging and anything else in the picture for scale. Estimate totals for everything shown, assuming one person ate it all. If the photo is a nutrition label or menu item, use those numbers.
+If there is no food in the photo, reply {"nofood": true}.
+Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": integer calories, "p": integer grams protein, "c": integer grams carbs, "f": integer grams fat}`, {images:[blob]});
+    if (!r || r.nofood) throw Object.assign(new Error('nofood'), {nofood:true});
+    const photo = await up;
+    if (S.mealJob !== job) return;
+    put('f_' + uid36(), {kind:'food', date:S.date, meal, name:String(r.name || 'Meal').slice(0, 60), cal:Math.round(num(r.cal)), p:Math.round(num(r.p)), c:Math.round(num(r.c)), f:Math.round(num(r.f)), photo:photo || null, ts:Date.now()});
+    if (S.mealJob === job) { S.mealJob = null; closeModal(); }
+    toast(`Added ${String(r.name || 'meal')} — ${fmt(num(r.cal))} cal`);
+  } catch(e) {
+    console.error(e);
+    if (S.mealJob !== job) return;
+    job.err = e.nofood ? 'I couldn’t see any food in that photo. Try another one.' : e.code === 'rate_limited' ? 'Too many photos at once — wait a minute and try again.' : 'Couldn’t read that photo. Check your connection and try again.';
+    renderModal();
+  }
+}
+
 /* ---------- modals ---------- */
 const MODALS = {};
+MODALS.mealPic = () => {
+  const j = S.mealJob; if (!j) return '';
+  return `<div class="sh"><b>${esc(j.meal)}</b><button class="btn2" data-a="closeModal">${j.err ? 'Close' : 'Cancel'}</button></div>
+    <img class="preview" src="${j.url}" alt="">
+    ${j.err ? `<div class="lg-err">${esc(j.err)}</div>
+      <div class="grid2 sec"><button class="btn" data-a="mealRetry">Try again</button><label class="btn2 filebtn">📷 New photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${esc(j.meal)}"></label></div>
+      <button class="lnk sec" data-a="mealManual">Type it in instead</button>`
+    : `<div class="scan"><span class="spin"></span>Reading your meal…</div>`}`;
+};
 function openModal(name){ S.modal = name; renderModal(); }
 function closeModal(){ S.modal = null; renderModal(); render(); }
 /* ---------- import from old app + install ---------- */
@@ -1382,7 +1418,7 @@ const A = {
   day: a => { const n = addDays(S.date, +a.dataset.v); if (n <= today()) { S.date = n; render(); } },
   goToday: () => { S.date = today(); render(); },
   settings: () => openModal('settings'),
-  closeModal: () => { if (S.modal === 'workout') finishWo(); else closeModal(); },
+  closeModal: () => { if (S.modal === 'workout') finishWo(); else { if (S.modal === 'mealPic') S.mealJob = null; closeModal(); } },
   saveWeight: () => { const v = num($('#wIn').value); if (v <= 0) return toast('Enter your weight.'); const old = S.docs.get('w_'+S.date) || {}; $('#wIn').blur(); put('w_'+S.date, {...old, kind:'weight', date:S.date, lbs:round(v,1)}); toast('Weight saved'); },
   saveBody: () => { const v = num($('#bwIn').value); if (v <= 0) return toast('Enter your weight.'); const wa = num($('#waistIn').value); document.activeElement && document.activeElement.blur(); put('w_'+S.date, {kind:'weight', date:S.date, lbs:round(v,1), waist: wa > 0 ? wa : null}); toast('Weight saved'); },
   water: a => { const d = dayDoc(S.date); d.water = Math.max(0, num(d.water) + (+a.dataset.v)); put('d_'+S.date, d, 700); },
@@ -1422,6 +1458,8 @@ const A = {
   part: a => { const p = a.dataset.v, ps = S.wo.parts; const i = ps.indexOf(p); if (i >= 0) ps.splice(i, 1); else ps.push(p); a.classList.toggle('on', i < 0); S.wo.name = autoName(ps); const wn = $('#woName'); if (wn) wn.textContent = S.wo.name || 'Workout'; saveWo(); const ep = $('#exPick'); if (ep) ep.innerHTML = exPickHtml(); },
   woNow: a => { S.wo[a.dataset.k] = nowHM(); saveWo(0); renderModal(); },
   aiWo: () => aiWorkout(),
+  mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
+  mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
   insights: () => runInsights(),
   otherEx: () => { S.showOther = true; $('#exPick').innerHTML = exPickHtml(); const i = $('#exIn'); if (i) i.focus(); },
   pickEx: a => {
@@ -1541,6 +1579,10 @@ document.addEventListener('change', async e => {
   if (t.dataset.c === 'steps') { const d = dayDoc(S.date); d.steps = Math.max(0, Math.round(num(t.value))); put('d_'+S.date, d); }
   else if (t.dataset.c === 'notes') { const d = dayDoc(S.date); d.notes = t.value; put('d_'+S.date, d); }
   else if (t.dataset.c === 'progEx') { S.progEx = t.value; t.blur(); render(); }
+  else if (t.dataset.file === 'mealpic' && t.files && t.files[0]) {
+    const meal = t.dataset.meal || guessMeal(), blob = await shrink(t.files[0], 1024); t.value = '';
+    photoMeal(meal, blob);
+  }
   else if (t.dataset.file === 'pic' && t.files && t.files[0]) {
     const blob = await shrink(t.files[0], 1440); t.value = '';
     S.pic = {blob, url:URL.createObjectURL(blob), caption:'', busy:false}; openModal('pic');
