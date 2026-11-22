@@ -248,6 +248,17 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .bh span{color:var(--mu);font-size:13px}
 .br.zero .bh b{color:#ff8a5c}
 .br.zero .bh span{color:#ff8a5c}
+.plates{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:2px}
+.plates::-webkit-scrollbar{display:none}
+.plate{flex:0 0 calc(50% - 4px);scroll-snap-align:start;position:relative;border-radius:14px;overflow:hidden;aspect-ratio:1;background:var(--card2)}
+.plate img{width:100%;height:100%;object-fit:cover;display:block}
+.pc{position:absolute;left:0;right:0;bottom:0;padding:18px 8px 6px;background:linear-gradient(transparent,rgba(0,0,0,.65));color:#fff;font-size:12.5px}
+.pc b{display:block;font-size:12px;color:#e8f7a8}
+.stack{display:flex;align-items:center;flex:0 0 118px}
+.stack img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2.5px solid #fff;margin-left:-14px;box-shadow:0 1px 4px rgba(0,0,0,.15);position:relative}
+.stack img:first-child{margin-left:0}
+.stack span{margin-left:4px;font-size:12px;color:var(--mu);font-weight:700}
+.pdsel{background:rgba(198,244,50,.12);border-radius:10px}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -819,12 +830,20 @@ VIEWS.food = () => {
     ${bar(tot.cal, st.calTarget, 'var(--ac)', true)}
     <div class="macro"><span>Protein</span>${bar(tot.p, st.proteinTarget, 'var(--pink)')}<span>${fmt(tot.p)} / ${fmt(st.proteinTarget)} g</span></div>
     <div class="note">Carbs ${fmt(tot.c)} g · Fat ${fmt(tot.f)} g</div></div>`;
+  const shots = foods.filter(f => f.photo);
+  if (shots.length) h += `<div class="card"><div class="ch"><h3>${d === today() ? 'Today’s plates' : 'Plates'}</h3><span class="mu">${shots.length} photo${shots.length > 1 ? 's' : ''}</span></div>
+    <div class="plates">${shots.map(f => `<div class="plate tap" data-a="editFood" data-id="${esc(f.id)}"><img src="${blobUrl(f.photo)}" alt="" loading="lazy"><div class="pc"><b>${esc(f.meal || '')}</b>${fmt(num(f.cal))} cal</div></div>`).join('')}</div></div>`;
   for (const m of MEALS) {
     const items = foods.filter(f => (f.meal || 'Snacks') === m), t = sumFood(items);
     h += `<div class="card"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${m}"></label></div></div>`;
     h += items.length ? `<div class="list">${items.map(f => `<div class="it">${f.photo ? `<img class="fthumb" src="${blobUrl(f.photo)}" alt="" loading="lazy">` : ''}<div class="main tap" data-a="editFood" data-id="${esc(f.id)}"><div class="nm">${esc(f.name)}</div><div class="sm">${fmt(num(f.cal))} cal · P ${fmt(num(f.p))} · C ${fmt(num(f.c))} · F ${fmt(num(f.f))}</div></div><button class="x" data-a="delDoc" data-id="${esc(f.id)}">Remove</button></div>`).join('')}</div>` : '';
     h += `</div>`;
   }
+  // photo diary: every day with meal photos, photos overlapping
+  const byDay = {}; all('food').filter(f => f.photo).forEach(f => (byDay[f.date] = byDay[f.date] || []).push(f));
+  const pdays = Object.keys(byDay).sort().reverse().slice(0, 21);
+  if (pdays.length) h += `<div class="card"><div class="ch"><h3>Photo diary</h3><span class="mu">tap a day</span></div><div class="list">${pdays.map(dd => { const fs = byDay[dd].sort((a, b) => (a.ts || 0) - (b.ts || 0)), tot = sumFood(all('food').filter(f => f.date === dd));
+    return `<div class="it tap ${dd === d ? 'pdsel' : ''}" data-a="foodDay" data-v="${dd}"><div class="stack">${fs.slice(0, 4).map((f, i) => `<img src="${blobUrl(f.photo)}" alt="" loading="lazy" style="z-index:${10 - i}">`).join('')}${fs.length > 4 ? `<span>+${fs.length - 4}</span>` : ''}</div><div class="main"><div class="nm">${dd === today() ? 'Today' : fmtDate(dd)}</div><div class="sm">${fmt(tot.cal)} cal · ${fmt(tot.p)} g protein</div></div><span class="mu">›</span></div>`; }).join('')}</div></div>`;
   // recents
   const cut = addDays(today(), -45), seen = new Set(), rec = [];
   all('food').filter(f => f.date >= cut).sort((a,b) => (b.ts||0) - (a.ts||0)).forEach(f => { const k = (f.name||'').trim().toLowerCase(); if (k && !seen.has(k) && rec.length < 16) { seen.add(k); rec.push(f); } });
@@ -1648,6 +1667,7 @@ const A = {
     dd.off = !dd.off; put('d_'+ds, dd); renderModal();
   },
   dpFull: () => { const ds = S.pickDay; S.date = ds; const w = dayWorkout(ds); if (w) openWorkout(w.id); else newWorkout(false); },
+  foodDay: a => { S.date = a.dataset.v; render(); window.scrollTo(0, 0); },
   balSpan: a => { S.balSpan = +a.dataset.v; render(); },
   calMonth: a => { S.calMonth = a.dataset.v; render(); },
   aiWo: () => { S.voiceType = false; aiWorkout(); },
