@@ -215,6 +215,13 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .scan{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;font-weight:650;color:var(--ac)}
 .spin{width:18px;height:18px;border:2.5px solid #3a4150;border-top-color:var(--ac);border-radius:50%;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+.voice{display:block;width:100%;text-align:center;background:linear-gradient(180deg,#2a3512,#1c2210);border:1.5px solid #4d6420;border-radius:18px;padding:18px 14px;color:var(--tx)}
+.voice.on{background:linear-gradient(180deg,#4a1f1a,#2a1412);border-color:#ff6b5c;animation:pulse 1.2s infinite}
+.voice.busy{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;font-weight:700;color:var(--ac)}
+.vmic{display:block;font-size:40px;line-height:1.1}
+.vt{display:block;font-size:19px;font-weight:800;margin-top:4px}
+.vs{display:block;font-size:13px;color:var(--mu);margin-top:4px}
+.vlive{width:100%;font-size:15px;margin-top:6px;color:var(--tx);min-height:0}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -862,6 +869,7 @@ async function aiWorkout(){
   const prompt = `You turn a spoken description of a gym workout into a structured log. It may come from voice dictation, so expect missing punctuation and misheard words.
 Workout date: ${w.date}. Current time: ${nowHM()}.
 Description: <<${desc.slice(0, 1500)}>>
+It may describe just the one exercise they finished, or a whole workout. Already logged today: ${w.exercises.map(e => e.name).join(', ') || 'nothing yet'}.
 Known exercise names (use one of these exact names when it matches; otherwise use a short clear name): ${exNames().join(', ')}.
 Body part keys (use only these): ${PARTS.map(p => p[0]).join(', ')}.
 Weights are in pounds. "3 sets of 10 at 135" means three sets, each 135 lb for 10 reps. If no weight is said (bodyweight), use 0. If a time like "started at 6" is said, convert it to 24-hour HH:MM using common sense (evening gym time if ambiguous). If a length like "an hour and a half" is said with only a start or an end, work out the other time.
@@ -870,7 +878,7 @@ Reply with JSON only: {"name": "short workout name like 'Back & chest'", "start"
     const r = await S.sample.json(prompt, {modelTier:'default'});
     if (!r || typeof r !== 'object') throw new Error('bad');
     if (S.wo !== w) return;
-    if (r.name && !w.name) w.name = String(r.name).slice(0, 60);
+    const added = [];
     const hm = v => typeof v === 'string' && /^\d{1,2}:\d{2}$/.test(v) ? v.padStart(5, '0') : null;
     if (hm(r.start)) w.start = hm(r.start);
     if (hm(r.end)) w.end = hm(r.end);
@@ -879,11 +887,12 @@ Reply with JSON only: {"name": "short workout name like 'Back & chest'", "start"
       if (!e || !e.name) return;
       const name = exNames().find(n => n.toLowerCase() === String(e.name).toLowerCase()) || String(e.name).slice(0, 40);
       const sets = (Array.isArray(e.sets) ? e.sets : []).slice(0, 20).map(s => ({w: num(s.w) || '', r: num(s.r) || ''})).filter(s => s.r !== '' || s.w !== '');
-      w.exercises.push({name, sets: sets.length ? sets : [{w:'', r:''}]});
-      addPartsFor(name);
+      const ex = w.exercises.find(x => x.name.toLowerCase() === name.toLowerCase());
+      if (ex) { if (sets.length) { ex.sets = sets; ex.each = false; } } else w.exercises.push({name, sets: sets.length ? sets : [{w:'', r:''}]});
+      addPartsFor(name); added.push(name);
     });
     if (r.notes) w.notes = [w.notes, String(r.notes).slice(0, 500)].filter(Boolean).join('\n');
-    w.desc = ''; saveWo(0); toast('Workout filled in — check it over');
+    w.name = autoName(w.parts) || w.name; w.desc = ''; S.voiceText = ''; saveWo(0); toast(added.length ? `Logged: ${[...new Set(added)].join(', ')}` : 'Got it');
   } catch(e) {
     if (e && e.code === 'not_granted') { S.sample = null; toast('AI isn’t available here.'); }
     else if (e && e.code === 'rate_limited') toast('Too many requests — wait a minute.');
@@ -891,7 +900,26 @@ Reply with JSON only: {"name": "short workout name like 'Back & chest'", "start"
   }
   w.busy = false; if (S.modal === 'workout' && S.wo === w) renderModal();
 }
-let listening = false;
+let listening = false, recog = null;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function voiceToggle(){
+  if (!S.wo) return;
+  if (S.wo.busy) return;
+  if (!SR) { S.voiceType = true; renderModal(); setTimeout(() => { const t = $('#voiceIn'); if (t) t.focus(); }, 50); return; }
+  if (recog) { try { recog.stop(); } catch(_) {} return; }
+  let finalText = '';
+  recog = new SR(); recog.lang = 'en-CA'; recog.interimResults = true; recog.continuous = true;
+  recog.onresult = e => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += t + ' '; else interim += t; } S.voiceText = (finalText + interim).trim(); const el = $('#voiceLive'); if (el) el.textContent = S.voiceText; };
+  recog.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { toast('Allow the microphone for this app in Settings, or type it instead.'); S.voiceType = true; } };
+  recog.onend = () => { recog = null; listening = false; const txt = (S.voiceText || '').trim(); if (S.wo && txt) { S.wo.desc = txt; aiWorkout(); } else renderModal(); };
+  try { recog.start(); listening = true; S.voiceText = ''; renderModal(); } catch(e) { recog = null; S.voiceType = true; renderModal(); }
+}
+function voiceBlock(w){
+  if (!S.sample) return '';
+  if (w.busy) return `<div class="voice busy"><span class="spin"></span>Logging what you said…<div class="vlive">${esc(S.voiceText || '')}</div></div>`;
+  if (S.voiceType) return `<div class="voice"><textarea id="voiceIn" data-wo="desc" placeholder="e.g. lat pulldown 3 sets of 12 at 140">${esc(w.desc || '')}</textarea><div class="grid2" style="margin-top:8px"><button class="btn" data-a="aiWo">Log it</button><button class="btn2" data-a="voiceClose">Close</button></div></div>`;
+  return `<button class="voice ${listening ? 'on' : ''}" data-a="voice"><span class="vmic">🎤</span><span class="vt">${listening ? 'Listening… tap when done' : 'Tap and say what you did'}</span><span class="vs">${listening ? '' : 'e.g. “bench press, 3 sets of 8 at 185”'}</span><div class="vlive" id="voiceLive">${listening ? esc(S.voiceText || '') : ''}</div></button>`;
+}
 function setupDictation(d){
   S.dict = d;
   d.onPartial(({text}) => { const el = $('#woPartial'); if (el) el.textContent = text; });
@@ -1149,7 +1177,8 @@ MODALS.workout = () => {
   w.parts = w.parts || [];
   const mins = woMins(w);
   let h = `<div class="sh"><b id="woName">${esc(w.name || 'Workout')}</b><button class="btn" data-a="finishWo">Done</button></div>
-    <label class="f">Date</label><input type="date" data-wo="date" value="${esc(w.date)}" max="${today()}">
+    ${voiceBlock(w)}
+    <label class="f sec">Date</label><input type="date" data-wo="date" value="${esc(w.date)}" max="${today()}">
     <div class="sec"><div class="ch" style="margin-bottom:6px"><label class="f" style="margin:0">Time</label><span class="dur" id="woDur">${mins != null ? durTxt(mins) : ''}</span></div>
       <div class="times"><div><label class="f">Started</label><div class="row"><input type="time" data-wo="start" value="${esc(w.start || '')}"><button class="btn2" data-a="woNow" data-k="start">Now</button></div></div>
       <div><label class="f">Finished</label><div class="row"><input type="time" data-wo="end" value="${esc(w.end || '')}"><button class="btn2" data-a="woNow" data-k="end">Now</button></div></div></div></div>
@@ -1457,7 +1486,9 @@ const A = {
   rest: a => startRest(+a.dataset.v),
   part: a => { const p = a.dataset.v, ps = S.wo.parts; const i = ps.indexOf(p); if (i >= 0) ps.splice(i, 1); else ps.push(p); a.classList.toggle('on', i < 0); S.wo.name = autoName(ps); const wn = $('#woName'); if (wn) wn.textContent = S.wo.name || 'Workout'; saveWo(); const ep = $('#exPick'); if (ep) ep.innerHTML = exPickHtml(); },
   woNow: a => { S.wo[a.dataset.k] = nowHM(); saveWo(0); renderModal(); },
-  aiWo: () => aiWorkout(),
+  aiWo: () => { S.voiceType = false; aiWorkout(); },
+  voice: () => voiceToggle(),
+  voiceClose: () => { S.voiceType = false; renderModal(); },
   mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
   mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
   insights: () => runInsights(),
