@@ -233,7 +233,7 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .cd.w b{color:#e8f7a8}.cd.w span{color:var(--ac)}
 .cd.r{background:#231f33;border-color:#3b3357}.cd.r span{color:#b39dff}
 .cfigs{display:flex;gap:1px;justify-content:center;font-style:normal}
-.cfigs svg{width:15px;height:24px}
+.cfigs svg{width:17px;height:27px}
 .cd em{font-style:normal;font-size:9px;color:var(--ac);font-weight:800;line-height:1}
 .cd.r span{font-size:15px}
 .cd.t{outline:2px solid var(--ac);outline-offset:1px}
@@ -321,8 +321,8 @@ input:focus,select:focus,textarea:focus{border-color:#b8c0cc}
 .voice.busy{color:var(--act)}
 .restmsg,.on-rest{color:#6f52d9!important}
 .on-rest{border-color:#cfc4ff!important}
-.cd.w{background:linear-gradient(180deg,#eefac4,#dcf38a);border-color:#a6cf1a}
-.cd.w b{color:#3d5200}.cd.w span,.cd em{color:var(--act)}
+.cd.w{background:#fff;border:2px solid #9ccc1a;box-shadow:inset 0 3px 0 #c6f432}
+.cd.w b{color:#2f5200}.cd.w span,.cd em{color:var(--act)}
 .cd.r{background:#f1edff;border-color:#d2c7ff}.cd.r span{color:#6f52d9}
 .napc{background:#f1edff;border-color:#d2c7ff;color:#5a40c4}
 .av{background:#f1f3f7;color:var(--act)}
@@ -720,6 +720,7 @@ function recoveryCard(d){
 }
 
 /* ---------- workout calendar ---------- */
+const CALPAL = {on:'#3c8a00', off:'#c3c9d3', def:'#aab2bf'};
 const PART_AB = {chest:'CH', back:'BK', shoulders:'SH', biceps:'BI', triceps:'TRI', forearms:'FA', abs:'AB', legs:'LG', glutes:'GL', hamstrings:'HS', calves:'CV', cardio:'CAR', full:'FULL'};
 function calendarCard(month, nav){
   const [y, m] = month.split('-').map(Number), first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), t = today();
@@ -732,7 +733,7 @@ function calendarCard(month, nav){
     const parts = [...new Set(ws.flatMap(w => w.parts || []))];
     if (ws.length) nW++; if (off) nR++;
     const recI = [...new Set(recOf(ds).map(r => (REC.find(x => x[0] === r.t) || [])[1]).filter(Boolean))].join('');
-    const ab0 = parts.length ? `<i class="cfigs">${parts.slice(0, 2).map(p => fig(p)).join('')}</i>${parts.length > 2 ? `<em>+${parts.length - 2}</em>` : ''}` : ws.length ? '✓' : off ? '😴' : '';
+    const ab0 = parts.length ? `<i class="cfigs">${parts.slice(0, 2).map(p => fig(p, CALPAL)).join('')}</i>${parts.length > 2 ? `<em>+${parts.length - 2}</em>` : ''}` : ws.length ? '✓' : off ? '😴' : '';
     cells += `<button class="cd ${ws.length ? 'w' : ''} ${off ? 'r' : ''} ${ds === t ? 't' : ''} ${ds > t ? 'f' : ''}" data-a="calDay" data-v="${ds}" ${ds > t ? 'disabled' : ''}><b>${dd}</b><span>${ab0}</span>${recI ? `<i class="crec">${recI}</i>` : ''}</button>`;
   }
   const label = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
@@ -994,8 +995,8 @@ VIEWS.prog = () => {
 const PARTS = [['chest','Chest'],['back','Back'],['shoulders','Shoulders'],['biceps','Biceps'],['triceps','Triceps'],['forearms','Forearms'],['abs','Abs'],['legs','Legs'],['glutes','Glutes'],['hamstrings','Hamstrings'],['calves','Calves'],['cardio','Cardio'],['full','Full body']];
 const PART_LBL = Object.fromEntries(PARTS);
 const EX_PARTS = {'Deadlift':['back','hamstrings','glutes'],'Squat':['legs','glutes'],'Bench Press':['chest','triceps'],'Overhead Press':['shoulders','triceps'],'Barbell Row':['back','biceps'],'Romanian Deadlift':['hamstrings','glutes'],'Front Squat':['legs'],'Incline Bench Press':['chest','shoulders'],'Pull-up':['back','biceps'],'Chin-up':['back','biceps'],'Lat Pulldown':['back','biceps'],'Seated Cable Row':['back','biceps'],'Dumbbell Bench Press':['chest','triceps'],'Dumbbell Shoulder Press':['shoulders'],'Dumbbell Row':['back','biceps'],'Leg Press':['legs'],'Lunge':['legs','glutes'],'Bulgarian Split Squat':['legs','glutes'],'Leg Curl':['hamstrings'],'Leg Extension':['legs'],'Hip Thrust':['glutes'],'Bicep Curl':['biceps'],'Hammer Curl':['biceps','forearms'],'Tricep Pushdown':['triceps'],'Skull Crusher':['triceps'],'Dips':['chest','triceps'],'Face Pull':['shoulders','back'],'Lateral Raise':['shoulders'],'Shrug':['back'],'Calf Raise':['calves'],'Farmer Carry':['forearms'],'Plank':['abs'],'Back Extension':['back']};
-function fig(p){
-  const ON = '#a6d41a', OFF = '#cfd4dd', DEF = '#bcc2cd', all = p === 'full';
+function fig(p, pal){
+  const ON = (pal && pal.on) || '#a6d41a', OFF = (pal && pal.off) || '#cfd4dd', DEF = (pal && pal.def) || '#bcc2cd', all = p === 'full';
   const backView = ['back','triceps','glutes','hamstrings','calves'].includes(p);
   const f = c => all || c ? ON : OFF;
   let g = `<circle cx="20" cy="6.5" r="4.5" fill="${f(false)}"/>`;
@@ -1240,6 +1241,10 @@ MODALS.dayPick = () => {
     <div class="note" style="margin-top:-4px">${w ? `Logged: ${esc(autoName(ps) || w.name || 'workout')}${nEx ? ` · ${nEx} exercise${nEx > 1 ? 's' : ''}` : ''}` : off ? 'Logged as a rest day' : 'Nothing logged yet. Tap what you trained, or mark it a rest day.'}</div>
     <label class="f sec">What did you train?</label>
     <div class="parts">${PARTS.map(([k,l]) => `<button class="part ${ps.includes(k) ? 'on' : ''}" data-a="dpPart" data-v="${k}">${fig(k)}<span>${l}</span></button>`).join('')}</div>
+    <label class="f sec">Recovery</label>
+    <div class="grid3">${REC.map(([k,ic,l]) => `<button class="recb ${S.dpRec === k ? 'on' : ''}" data-a="dpRecPick" data-v="${k}"><span>${ic}</span>${l}</button>`).join('')}</div>
+    ${S.dpRec ? `<div class="grid3" style="grid-template-columns:repeat(4,1fr);margin-top:6px">${REC.find(r => r[0] === S.dpRec)[3].map(m => `<button class="chip" data-a="dpRecAdd" data-v="${m}">${m} min</button>`).join('')}</div>` : ''}
+    ${recOf(ds).length ? `<div class="chips" style="margin-top:8px">${recOf(ds).map((r, i) => { const R = REC.find(x => x[0] === r.t) || ['', '•', r.t]; return `<button class="chip recc" data-a="dpRecRm" data-i="${i}">${R[1]} ${R[2]} ${num(r.m)} min ✕</button>`; }).join('')}</div>` : ''}
     <div class="grid2 sec"><button class="btn2" data-a="dpFull">+ Exercises & sets</button><button class="btn2 ${off ? 'on-rest' : ''}" data-a="dpRest">${off ? 'Undo rest day' : '😴 Rest day'}</button></div>`;
 };
 MODALS.mealPic = () => {
@@ -1670,7 +1675,10 @@ const A = {
   part: a => { const p = a.dataset.v, ps = S.wo.parts; const i = ps.indexOf(p); if (i >= 0) ps.splice(i, 1); else ps.push(p); a.classList.toggle('on', i < 0); S.wo.name = autoName(ps); const wn = $('#woName'); if (wn) wn.textContent = S.wo.name || 'Workout'; saveWo(); const ep = $('#exPick'); if (ep) ep.innerHTML = exPickHtml(); },
   woNow: a => { S.wo[a.dataset.k] = nowHM(); saveWo(0); renderModal(); },
   offDay: () => { const d = dayDoc(S.date); d.off = !d.off; put('d_'+S.date, d); toast(d.off ? 'Rest day logged 😴' : 'Rest day removed'); },
-  calDay: a => { S.pickDay = a.dataset.v; openModal('dayPick'); },
+  calDay: a => { S.pickDay = a.dataset.v; S.dpRec = null; openModal('dayPick'); },
+  dpRecPick: a => { S.dpRec = S.dpRec === a.dataset.v ? null : a.dataset.v; renderModal(); },
+  dpRecAdd: a => { const ds = S.pickDay, k = S.dpRec; if (!k) return; const d = dayDoc(ds); d.rec = [...(d.rec || []), {t:k, m:+a.dataset.v, ts:Date.now()}]; put('d_'+ds, d); S.dpRec = null; renderModal(); },
+  dpRecRm: a => { const ds = S.pickDay, d = dayDoc(ds); d.rec = (d.rec || []).filter((_, i) => i !== +a.dataset.i); put('d_'+ds, d); renderModal(); },
   dpPart: a => {
     const ds = S.pickDay, p = a.dataset.v; let w = dayWorkout(ds), id = w ? w.id : 'wo_' + uid36();
     w = w ? JSON.parse(JSON.stringify(w)) : {kind:'workout', date:ds, ts:Date.now(), name:'', exercises:[], parts:[]};
