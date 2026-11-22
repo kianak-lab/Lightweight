@@ -270,6 +270,14 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .eatleft span{font-size:12px;color:var(--mu)}
 .eattip{font-size:14px;margin:2px 0 6px;color:var(--tx)}
 .ate{padding:8px 12px;font-size:14px}
+.mtiles{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.mt{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:7px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--tx);min-width:0;position:relative}
+.mt .ml{font-size:10.5px;font-weight:700;color:var(--mu);white-space:nowrap}
+.mt b{font-size:21px;font-weight:850;line-height:1.1}
+.mt .mu2{font-size:10px;color:var(--mu)}
+.mt .mr{font-size:10px;font-weight:800;color:var(--act);background:#eef8c8;border-radius:999px;padding:0 6px;margin-top:2px}
+.mt.on{border-color:#9ccc1a;background:#f3fbd9}
+.mt.on .ml{color:var(--act)}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -1627,7 +1635,11 @@ VIEWS.crew = () => {
       <div class="pstep">${place}</div></div>` : '<div class="pod empty"></div>';
   let h = newbies.length ? `<div class="card newc"><div class="ch"><h3>🆕 New in the crew</h3><span class="mu">last 7 days</span></div><div class="list">${newbies.map(m => `<div class="it tap" data-a="member" data-id="${esc(m.id)}">${avatar(m)}<div class="main"><div class="nm"><b>${esc(m.name || 'Someone')}</b></div><div class="sm">joined ${ago(num(m.joined))}${seen(m) ? ' · ' + seen(m) : ''}</div></div><span class="mu">›</span></div>`).join('')}</div></div>` : '';
   h += `<div class="card sb"><div class="sbh"><div><div class="sbk">Crew scoreboard</div><div class="sbt">${METRICS.find(x => x[0] === k)[1]}</div></div><span class="sbn">${members.length} in crew · ${activeN} active today</span></div>
-    <div class="seg">${METRICS.map(([key,l]) => `<button class="${k===key?'on':''}" data-a="metric" data-v="${key}">${l.replace(' this ', ' · ').replace(' today','')}</button>`).join('')}</div>
+    <div class="mtiles">${METRICS.map(([key, l, u]) => { const meM = members.find(x => x.id === S.uid), v = meM ? mv(meM, key) : null;
+      const rk = v == null ? null : 1 + members.filter(x => { const o = mv(x, key); return o != null && o > v; }).length;
+      const short = {gym:'Week', month:'Month', streak:'Streak', lost:'Lbs lost', protein:'Protein'}[key];
+      return `<button class="mt ${k===key?'on':''}" data-a="metric" data-v="${key}"><span class="ml">${short}</span><b>${v == null ? '—' : round(v, 1)}</b><span class="mu2">${u}</span>${rk && members.length > 1 ? `<span class="mr">#${rk}</span>` : ''}</button>`; }).join('')}</div>
+    <div class="note" style="margin-top:6px">Your numbers · tap one to rank the crew by it</div>
     <div class="podium">${pod(ranked[1], 2)}${pod(ranked[0], 1)}${pod(ranked[2], 3)}</div>
     ${ranked.length > 3 ? `<div class="list sbl">${ranked.slice(3).map((r, i) => `<div class="it tap" data-a="member" data-id="${esc(r.m.id)}"><span class="rank">${i + 4}</span>${avatar(r.m)}<div class="main"><div class="nm"><b>${esc(r.m.name || 'Someone')}</b>${r.m.id === S.uid ? ' <span class="you">you</span>' : ''}${mv(r.m,'streak') >= 2 ? ` <span class="fire">🔥${mv(r.m,'streak')}</span>` : ''}</div><div class="sbar"><i style="width:${lead ? clamp((r.v || 0) / lead * 100, 3, 100) : 3}%"></i></div><div class="sm">${esc(sub(r.m))}</div></div><div class="val">${val(r.v)}<small>${unit}</small></div></div>`).join('')}</div>` : ''}
     ${ranked.length === 1 ? `<div class="note" style="text-align:center">Send your link to the crew to fill the podium.</div>` : ''}
