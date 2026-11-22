@@ -259,6 +259,11 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .stack img:first-child{margin-left:0}
 .stack span{margin-left:4px;font-size:12px;color:var(--mu);font-weight:700}
 .pdsel{background:rgba(198,244,50,.12);border-radius:10px}
+.recb{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px;font-weight:650;color:var(--tx)}
+.recb span{font-size:26px;line-height:1}
+.recb.on{border-color:var(--ac);background:#f3fbd9}
+.recc{background:#fff4ec;border-color:#ffd6bf;color:#9a3f12}
+.crec{font-style:normal;font-size:9px;line-height:1;letter-spacing:-1px}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -647,7 +652,7 @@ function datesWithLogs(){
   const s = new Set();
   for (const [, d] of S.docs) {
     if (!d || !d.date) continue;
-    if (d.kind === 'daily' && !(d.water || d.steps || d.energy || d.mood || d.notes || d.off || (d.naps || []).length)) continue;
+    if (d.kind === 'daily' && !(d.water || d.steps || d.energy || d.mood || d.notes || d.off || (d.naps || []).length || (d.rec || []).length)) continue;
     if (['weight','food','sleep','workout','daily'].includes(d.kind)) s.add(d.date);
   }
   return s;
@@ -702,6 +707,18 @@ const sleepTotal = d => nightHrs(d) + napMin(d) / 60;
 const minTxt = m => m >= 60 ? `${Math.floor(m/60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
 function addNap(m, start){ const d = dayDoc(S.date); d.naps = [...(d.naps || []), {m:Math.round(m), start:start || '', ts:Date.now()}]; put('d_'+S.date, d); toast(`Nap logged — ${minTxt(Math.round(m))}`); }
 
+/* ---------- recovery: sauna, cold plunge, meditation ---------- */
+const REC = [['sauna','🔥','Sauna',[10,15,20,30]],['cold','🧊','Cold plunge',[2,3,5,10]],['med','🧘','Meditation',[5,10,15,20]]];
+const recOf = d => ((S.docs.get('d_'+d) || {}).rec || []);
+function recoveryCard(d){
+  const rs = recOf(d), pick = S.recPick && REC.find(r => r[0] === S.recPick);
+  const tot = k => rs.filter(r => r.t === k).reduce((a, r) => a + num(r.m), 0);
+  return `<div class="card"><div class="ch"><h3>Recovery</h3><span class="mu">${rs.length ? REC.filter(r => tot(r[0])).map(r => `${r[1]} ${tot(r[0])} min`).join(' · ') : 'sauna · cold plunge · meditation'}</span></div>
+    <div class="grid3">${REC.map(([k,ic,l]) => `<button class="recb ${S.recPick === k ? 'on' : ''}" data-a="recPick" data-v="${k}"><span>${ic}</span>${l}</button>`).join('')}</div>
+    ${pick ? `<div class="note" style="margin-top:10px">${pick[1]} ${pick[2]} — how long?</div><div class="grid3" style="grid-template-columns:repeat(4,1fr);margin-top:6px">${pick[3].map(m => `<button class="chip" data-a="recAdd" data-v="${m}">${m} min</button>`).join('')}</div>` : ''}
+    ${rs.length ? `<div class="chips" style="margin-top:10px">${rs.map((r, i) => { const R = REC.find(x => x[0] === r.t) || ['', '•', r.t]; return `<button class="chip recc" data-a="recRm" data-i="${i}">${R[1]} ${R[2]} ${num(r.m)} min ✕</button>`; }).join('')}</div>` : ''}</div>`;
+}
+
 /* ---------- workout calendar ---------- */
 const PART_AB = {chest:'CH', back:'BK', shoulders:'SH', biceps:'BI', triceps:'TRI', forearms:'FA', abs:'AB', legs:'LG', glutes:'GL', hamstrings:'HS', calves:'CV', cardio:'CAR', full:'FULL'};
 function calendarCard(month, nav){
@@ -714,8 +731,9 @@ function calendarCard(month, nav){
     const ds = `${month}-${pad(dd)}`, ws = byDay[ds] || [], off = !ws.length && !!(S.docs.get('d_'+ds) || {}).off;
     const parts = [...new Set(ws.flatMap(w => w.parts || []))];
     if (ws.length) nW++; if (off) nR++;
-    const ab = parts.length ? `<i class="cfigs">${parts.slice(0, 2).map(p => fig(p)).join('')}</i>${parts.length > 2 ? `<em>+${parts.length - 2}</em>` : ''}` : ws.length ? '✓' : off ? '😴' : '';
-    cells += `<button class="cd ${ws.length ? 'w' : ''} ${off ? 'r' : ''} ${ds === t ? 't' : ''} ${ds > t ? 'f' : ''}" data-a="calDay" data-v="${ds}" ${ds > t ? 'disabled' : ''}><b>${dd}</b><span>${ab}</span></button>`;
+    const recI = [...new Set(recOf(ds).map(r => (REC.find(x => x[0] === r.t) || [])[1]).filter(Boolean))].join('');
+    const ab0 = parts.length ? `<i class="cfigs">${parts.slice(0, 2).map(p => fig(p)).join('')}</i>${parts.length > 2 ? `<em>+${parts.length - 2}</em>` : ''}` : ws.length ? '✓' : off ? '😴' : '';
+    cells += `<button class="cd ${ws.length ? 'w' : ''} ${off ? 'r' : ''} ${ds === t ? 't' : ''} ${ds > t ? 'f' : ''}" data-a="calDay" data-v="${ds}" ${ds > t ? 'disabled' : ''}><b>${dd}</b><span>${ab0}</span>${recI ? `<i class="crec">${recI}</i>` : ''}</button>`;
   }
   const label = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
   const prev = ymd(new Date(y, m - 2, 1)).slice(0, 7), next = ymd(new Date(y, m, 1)).slice(0, 7);
@@ -817,6 +835,7 @@ VIEWS.today = () => {
   h += wos.length ? `<button class="btn full" style="margin-top:8px" data-a="newWo">Continue workout</button></div>`
     : off ? `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Work out anyway</button><button class="btn2" data-a="offDay">Undo rest day</button></div></div>`
     : `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Start workout</button><button class="btn2" data-a="offDay">😴 Rest day</button></div></div>`;
+  h += recoveryCard(d);
   h += calendarCard(d.slice(0, 7), false);
 
   return h;
@@ -1141,6 +1160,7 @@ function insightData(){
     foodsLast7Days:foods.filter(f => f.date >= addDays(t, -6)).slice(-60).map(f => `${f.date.slice(5)} ${f.meal || ''}: ${String(f.name).slice(0,40)} (${Math.round(num(f.cal))} cal, ${Math.round(num(f.p))}g protein)`),
     workoutsLast30Days:workouts().filter(w => w.date >= d30).map(w => ({date:w.date, name:w.name || '', bodyParts:w.parts || [], minutes:woMins(w), exercises:(w.exercises||[]).map(e => `${e.name}: ${setsStr((e.sets||[]).filter(s => num(s.r) > 0)) || 'no sets'}`), notes:(w.notes || '').slice(0,150)})),
     bestLiftsEst1RM:Object.fromEntries([...new Set(workouts().flatMap(w => (w.exercises||[]).map(e => e.name)))].filter(n => n && !CARDIO.has(n)).map(n => [n, bestFor(n).best]).filter(x => x[1]).map(([n, b]) => [n, Math.round(b.e)])),
+    recovery:days.map(d => recOf(d).length ? `${d}: ${recOf(d).map(r => `${r.t} ${r.m}min`).join(', ')}` : null).filter(Boolean),
     notes:days.map(d => (S.docs.get('d_'+d) || {}).notes ? `${d}: ${String(S.docs.get('d_'+d).notes).slice(0,200)}` : null).filter(Boolean)
   };
 }
@@ -1667,6 +1687,9 @@ const A = {
     dd.off = !dd.off; put('d_'+ds, dd); renderModal();
   },
   dpFull: () => { const ds = S.pickDay; S.date = ds; const w = dayWorkout(ds); if (w) openWorkout(w.id); else newWorkout(false); },
+  recPick: a => { S.recPick = S.recPick === a.dataset.v ? null : a.dataset.v; render(); },
+  recAdd: a => { const k = S.recPick; if (!k) return; const d = dayDoc(S.date); d.rec = [...(d.rec || []), {t:k, m:+a.dataset.v, ts:Date.now()}]; put('d_'+S.date, d); S.recPick = null; const R = REC.find(x => x[0] === k); toast(`${R[1]} ${R[2]} logged — ${a.dataset.v} min`); },
+  recRm: a => { const d = dayDoc(S.date); d.rec = (d.rec || []).filter((_, i) => i !== +a.dataset.i); put('d_'+S.date, d); },
   foodDay: a => { S.date = a.dataset.v; render(); window.scrollTo(0, 0); },
   balSpan: a => { S.balSpan = +a.dataset.v; render(); },
   calMonth: a => { S.calMonth = a.dataset.v; render(); },
