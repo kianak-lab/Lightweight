@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="Lightweight">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0e1013">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -267,6 +267,60 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 @keyframes pulse{50%{opacity:.6}}
 .ptags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
 .ptags span{font-size:11px;background:#232b12;color:var(--ac);border-radius:999px;padding:2px 7px}
+
+/* ===== light theme (white background, same accent colours) ===== */
+:root{--bg:#ffffff;--card:#ffffff;--card2:#f1f3f7;--line:#e1e5ec;--tx:#141820;--mu:#6b7383;--act:#5c7a00}
+html,body{background:#fff}
+header{background:rgba(255,255,255,.94)}
+nav{background:#fff;box-shadow:0 -4px 16px rgba(20,24,32,.06)}
+nav button.on{color:var(--act)}
+input:focus,select:focus,textarea:focus{border-color:#b8c0cc}
+.card{box-shadow:0 2px 10px rgba(20,24,32,.05)}
+#banner{color:#8a4b00;background:#fff3e0;border-color:#ffd8a8}
+.pill,.ptags span,.you{background:#eef8c8;color:var(--act)}
+.chart .gl{stroke:#e6e9ef}
+#modal .back{background:rgba(20,24,32,.35)}
+#modal .sheet,.sh{background:#fff}
+.ai{background:linear-gradient(180deg,#f7f9fc,#fff);border-color:var(--line)}
+#toast{background:#141820;color:#fff}
+.logo,.lg-logo{box-shadow:0 0 0 1px #e1e5ec}
+.lg-err{color:#b3261e;background:#fdecea;border-color:#f5c2bd}
+.lg-ph{border-color:#c9ced8}
+.part.on{background:#f3fbd9;border-color:#a6cf1a}
+.part.on span{color:var(--act)}
+.sb{background:radial-gradient(120% 80% at 50% 0%,#eefac4 0%,#fff 60%);border-color:#cfe58a}
+.sbk{color:var(--act)}
+.seg{background:var(--card2)}
+.pbadge{border-color:#fff;color:#141820}
+.pstep{background:linear-gradient(180deg,#eceff4,#e1e5ec);color:#8a93a3}
+.p1 .pstep{background:linear-gradient(180deg,#d9f27a,#c6f432);color:#3d5200}
+.p1 .pval{color:var(--act)}
+.pav .av.lg{border-color:#d5dae2}
+.p2 .pav .av.lg{border-color:#aab4bf}
+.sbar i{background:linear-gradient(90deg,#9cc41a,var(--ac))}
+.spin{border-color:#dde2ea;border-top-color:#8fb800}
+.scan,.dur{color:var(--act)}
+.voice{background:linear-gradient(180deg,#f4fbd9,#eaf6b8);border-color:#b9dc3c}
+.voice.on{background:linear-gradient(180deg,#ffe9e5,#ffd9d2);border-color:#ff6b5c}
+.voice.busy{color:var(--act)}
+.restmsg,.on-rest{color:#6f52d9!important}
+.on-rest{border-color:#cfc4ff!important}
+.cd.w{background:linear-gradient(180deg,#eefac4,#dcf38a);border-color:#a6cf1a}
+.cd.w b{color:#3d5200}.cd.w span,.cd em{color:var(--act)}
+.cd.r{background:#f1edff;border-color:#d2c7ff}.cd.r span{color:#6f52d9}
+.napc{background:#f1edff;border-color:#d2c7ff;color:#5a40c4}
+.av{background:#f1f3f7;color:var(--act)}
+.mebtn .av{border-color:#a6cf1a}
+.br.zero .bh b,.br.zero .bh span{color:#e0602c}
+.danger{color:#c62828!important;border-color:#f5c2bd!important}
+main > .card:not(.sb):not(.ai){--t:#5c7a00;background:radial-gradient(130% 90% at 0% 0%,rgba(var(--c),.26) 0%,rgba(var(--c),.08) 45%,#fff 80%);border:1.5px solid rgba(var(--c),.7);box-shadow:0 8px 22px -14px rgba(var(--c),.8)}
+main > .card:not(.sb):not(.ai) h3{color:var(--t)}
+main > .card:not(.sb):not(.ai):nth-of-type(5n+2){--t:#0a86c4}
+main > .card:not(.sb):not(.ai):nth-of-type(5n+3){--t:#0b9465}
+main > .card:not(.sb):not(.ai):nth-of-type(5n+4){--t:#6f52d9}
+main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
+.newc h3{color:var(--act)}
+.sbn{background:#fff;color:var(--mu)}
 </style>
 </head>
 <body>
@@ -903,7 +957,7 @@ const PARTS = [['chest','Chest'],['back','Back'],['shoulders','Shoulders'],['bic
 const PART_LBL = Object.fromEntries(PARTS);
 const EX_PARTS = {'Deadlift':['back','hamstrings','glutes'],'Squat':['legs','glutes'],'Bench Press':['chest','triceps'],'Overhead Press':['shoulders','triceps'],'Barbell Row':['back','biceps'],'Romanian Deadlift':['hamstrings','glutes'],'Front Squat':['legs'],'Incline Bench Press':['chest','shoulders'],'Pull-up':['back','biceps'],'Chin-up':['back','biceps'],'Lat Pulldown':['back','biceps'],'Seated Cable Row':['back','biceps'],'Dumbbell Bench Press':['chest','triceps'],'Dumbbell Shoulder Press':['shoulders'],'Dumbbell Row':['back','biceps'],'Leg Press':['legs'],'Lunge':['legs','glutes'],'Bulgarian Split Squat':['legs','glutes'],'Leg Curl':['hamstrings'],'Leg Extension':['legs'],'Hip Thrust':['glutes'],'Bicep Curl':['biceps'],'Hammer Curl':['biceps','forearms'],'Tricep Pushdown':['triceps'],'Skull Crusher':['triceps'],'Dips':['chest','triceps'],'Face Pull':['shoulders','back'],'Lateral Raise':['shoulders'],'Shrug':['back'],'Calf Raise':['calves'],'Farmer Carry':['forearms'],'Plank':['abs'],'Back Extension':['back']};
 function fig(p){
-  const ON = '#c6f432', OFF = '#3a4150', DEF = '#4a5263', all = p === 'full';
+  const ON = '#a6d41a', OFF = '#cfd4dd', DEF = '#bcc2cd', all = p === 'full';
   const backView = ['back','triceps','glutes','hamstrings','calves'].includes(p);
   const f = c => all || c ? ON : OFF;
   let g = `<circle cx="20" cy="6.5" r="4.5" fill="${f(false)}"/>`;
@@ -920,7 +974,7 @@ function fig(p){
   if (!backView) {
     g += `<rect x="13.4" y="15" width="6.3" height="6.5" rx="2.5" fill="${all || p==='chest' ? ON : DEF}"/><rect x="20.3" y="15" width="6.3" height="6.5" rx="2.5" fill="${all || p==='chest' ? ON : DEF}"/>`;
     g += `<rect x="15.6" y="22.5" width="8.8" height="11.5" rx="2" fill="${all || p==='abs' ? ON : DEF}"/>`;
-  } else g += `<path d="M20 14v20" stroke="#0e1013" stroke-width="1.2"/>`;
+  } else g += `<path d="M20 14v20" stroke="#ffffff" stroke-width="1.2"/>`;
   if (p === 'cardio') g += `<path d="M20 27.5c-3.4-2.4-5.6-4.2-5.6-6.6a2.8 2.8 0 0 1 5.6-.9a2.8 2.8 0 0 1 5.6.9c0 2.4-2.2 4.2-5.6 6.6z" fill="#ff7eb6"/>`;
   return `<svg viewBox="0 0 40 64" aria-hidden="true">${g}</svg>`;
 }
