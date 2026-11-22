@@ -240,6 +240,14 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--c:255,138,92}
 .cd.f{opacity:.35}
 .calnav{padding:6px 14px;font-size:18px}
 .napc{background:#231f33;border-color:#3b3357;color:#cfc4ff}
+.bal{display:flex;flex-direction:column;gap:4px}
+.br{display:flex;gap:10px;align-items:center}
+.bfig svg{width:18px;height:28px;display:block}
+.bmain{flex:1;min-width:0}
+.bh{display:flex;justify-content:space-between;font-size:14px}
+.bh span{color:var(--mu);font-size:13px}
+.br.zero .bh b{color:#ff8a5c}
+.br.zero .bh span{color:#ff8a5c}
 .insi{background:var(--card2);border-radius:10px;padding:9px 11px;margin-top:6px;font-size:14px}
 .qsets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .qs label{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;text-align:center}
@@ -651,6 +659,25 @@ function calendarCard(month, nav){
     <div class="note">${nW} workout${nW === 1 ? '' : 's'}${nR ? ` · ${nR} rest day${nR === 1 ? '' : 's'}` : ''} · tap any past day to fill it in</div></div>`;
 }
 
+/* ---------- body-part balance ---------- */
+function balanceCard(){
+  const span = S.balSpan || 28, t = today(), from = addDays(t, -(span - 1));
+  const muscles = PARTS.map(p => p[0]).filter(p => p !== 'full' && p !== 'cardio');
+  const cnt = {}, last = {};
+  PARTS.forEach(([k]) => { cnt[k] = 0; });
+  workouts().forEach(w => {
+    const ps = new Set(w.parts || []); if (ps.has('full')) muscles.forEach(m => ps.add(m));
+    ps.forEach(p => { if (!(p in cnt)) return; if (!last[p] || w.date > last[p]) last[p] = w.date; if (w.date >= from && w.date <= t) cnt[p]++; });
+  });
+  const rows = [...muscles, 'cardio'].map(k => ({k, n:cnt[k], last:last[k]})).sort((a, b) => b.n - a.n);
+  const max = Math.max(1, ...rows.map(r => r.n));
+  const missed = rows.filter(r => r.k !== 'cardio' && r.n === 0).map(r => PART_LBL[r.k]);
+  const daysAgo = d => { const n = Math.round((dnum(t) - dnum(d)) / DAY); return n === 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`; };
+  return `<div class="card"><div class="ch"><h3>Body part balance</h3><div class="row">${[[28,'4 wks'],[90,'3 mo']].map(([v,l]) => `<button class="chip ${span===v?'on':''}" data-a="balSpan" data-v="${v}">${l}</button>`).join('')}</div></div>
+    <div class="bal">${rows.map(r => `<div class="br ${r.n === 0 ? 'zero' : ''}"><span class="bfig">${fig(r.k)}</span><div class="bmain"><div class="bh"><b>${PART_LBL[r.k]}</b><span>${r.n ? `${r.n}×` : '0'} · ${r.last ? daysAgo(r.last) : 'never'}</span></div><div class="sbar"><i style="width:${r.n ? Math.max(4, r.n / max * 100) : 0}%"></i></div></div></div>`).join('')}</div>
+    <div class="note">${missed.length ? `⚠️ Not trained in the last ${span === 28 ? '4 weeks' : '3 months'}: <b>${missed.join(', ')}</b>.` : 'Every muscle group trained — nice balance.'} Full-body days count for every muscle.</div></div>`;
+}
+
 /* ---------- charts ---------- */
 function lineChart(series, {goal=null, h=170}={}){
   const W = 340, H = h, L = 34, R = 10, T = 12, B = 22;
@@ -825,6 +852,7 @@ VIEWS.prog = () => {
     <div class="legend"><span><i style="background:#7a8292"></i>Daily</span><span><i style="background:var(--ac)"></i>7-day average</span></div></div>`;
 
   h += calendarCard(S.calMonth || t.slice(0, 7), true);
+  h += balanceCard();
 
   // food 14 days
   const days14 = Array.from({length:14}, (_, i) => addDays(t, i-13));
@@ -1566,6 +1594,7 @@ const A = {
     dd.off = !dd.off; put('d_'+ds, dd); renderModal();
   },
   dpFull: () => { const ds = S.pickDay; S.date = ds; const w = dayWorkout(ds); if (w) openWorkout(w.id); else newWorkout(false); },
+  balSpan: a => { S.balSpan = +a.dataset.v; render(); },
   calMonth: a => { S.calMonth = a.dataset.v; render(); },
   aiWo: () => { S.voiceType = false; aiWorkout(); },
   voice: () => voiceToggle(),
