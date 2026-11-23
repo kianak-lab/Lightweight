@@ -1203,12 +1203,13 @@ function insightData(){
   const rate = weeklyRate(ws);
   return {
     today:t,
-    goals:{startWeight:st.startWeight, goalWeight:st.goalWeight, calories:st.calTarget, proteinG:st.proteinTarget, waterGlasses:st.waterTarget, sleepHours:st.sleepTarget, steps:st.stepsTarget},
+    goals:{startWeight:st.startWeight, goalWeight:st.goalWeight, calories:st.calTarget, proteinG:st.proteinTarget, sleepHours:st.sleepTarget, foodsToAvoid:st.avoidFoods || null, perWeek:Object.fromEntries(WEEKLY.filter(([k]) => num(st[k])).map(([k,,l]) => [l, num(st[k])])), strengthGoals:(st.liftGoals || []).map(g => `${g.ex}: ${g.target} ${g.unit === 'day' ? 'reps a day' : g.unit === 'set' ? 'reps in 1 set' : 'lb'}`)},
+    thisWeekSoFar:weekCounts(),
     loggingStreakDays:calcStreak(),
     weighIns:ws.filter(w => w.date >= addDays(t, -60)).map(w => [w.date, num(w.lbs), w.waist || null]),
     weightChangePerWeekLb: rate == null ? null : round(rate, 2),
     last14Days:days.map(d => { const f = sumFood(foods.filter(x => x.date === d)), s = S.docs.get('s_'+d), c = S.docs.get('d_'+d) || {};
-      return {date:d, cal:Math.round(f.cal) || null, protein:Math.round(f.p) || null, carbs:Math.round(f.c) || null, fat:Math.round(f.f) || null, sleepHrs:s ? num(s.hours) : null, napMinutes:napMin(d) || null, sleepQuality:s && s.quality ? s.quality : null, water:c.water || null, steps:c.steps || null, energy:c.energy || null, mood:c.mood || null}; }),
+      const sc = dayScore(d); return {date:d, cal:Math.round(f.cal) || null, protein:Math.round(f.p) || null, carbs:Math.round(f.c) || null, fat:Math.round(f.f) || null, nightSleepHrs:s ? round(nightHrs(d), 2) : null, napMinutes:napMin(d) || null, totalSleepHrs:(s || napMin(d)) ? round(sleepTotal(d), 2) : null, sleepQuality:s && s.quality ? s.quality : null, restDay:!!c.off, dailyRepGoals:(st.liftGoals || []).filter(g => g.unit === 'day').map(g => `${g.ex} ${dayReps(g.ex, d)}/${g.target}`), scorecard:`${sc.done}/${sc.total}`}; }),
     foodsLast7Days:foods.filter(f => f.date >= addDays(t, -6)).slice(-60).map(f => `${f.date.slice(5)} ${f.meal || ''}: ${String(f.name).slice(0,40)} (${Math.round(num(f.cal))} cal, ${Math.round(num(f.p))}g protein)`),
     workoutsLast30Days:workouts().filter(w => w.date >= d30).map(w => ({date:w.date, name:w.name || '', bodyParts:w.parts || [], minutes:woMins(w), exercises:(w.exercises||[]).map(e => `${e.name}: ${setsStr((e.sets||[]).filter(s => num(s.r) > 0)) || 'no sets'}`), notes:(w.notes || '').slice(0,150)})),
     bestLiftsEst1RM:Object.fromEntries([...new Set(workouts().flatMap(w => (w.exercises||[]).map(e => e.name)))].filter(n => n && !CARDIO.has(n)).map(n => [n, bestFor(n).best]).filter(x => x[1]).map(([n, b]) => [n, Math.round(b.e)])),
@@ -1219,7 +1220,8 @@ function insightData(){
 async function runInsights(){
   if (!S.sample || S.insBusy) return;
   S.insBusy = true; render();
-  const prompt = `You are the coach inside a personal fitness tracking app. Below is everything this person has logged (JSON). Analyze all of it together: weight trend against their goal, calories and protein against targets, what they actually eat, sleep, water, steps, energy and mood, how often and how long they train, which body parts get trained or neglected, and strength progress.
+  const prompt = `You are the coach inside a personal fitness tracking app. Below is everything this person has logged (JSON). Analyze all of it together: weight trend against their goal, calories and protein against targets, what they actually eat, sleep (use totalSleepHrs, which includes naps), how often they train and which body parts get trained or neglected, rest days, recovery (sauna, cold plunge, meditation), progress on their per-week and strength goals, and their daily scorecards.
+The app only tracks: weight, food (calories and macros), sleep and naps, workouts (body parts, exercises, sets/reps/weight), rest days, recovery sessions and goals. Never mention or ask them to log water, steps, energy or mood, because the app has no place for them. Many workouts are logged as body parts only, without sets; that is fine, so don't nag about it more than once. A day with no food logged means they didn't log it, not that they ate nothing. A sleep number that looks impossible is probably a logging mistake; mention it at most once, briefly.
 Write for a regular person in plain, direct language. Be specific: quote their real numbers and dates. Look for links between areas (for example sleep vs energy, protein vs target, training frequency vs body parts missed). Be encouraging but honest. If there is little data, say what you can and say which things to log to get better insights. Never recommend extreme dieting, very low calories, or rapid weight loss; keep advice moderate and sensible, and do not give medical advice.
 Data: ${JSON.stringify(insightData())}
 Reply with JSON only: {"headline": "one sentence summing up how they are doing", "wins": ["2-4 short things going well, with numbers"], "watch": ["2-4 short things to watch or fix, with numbers"], "next": ["3 concrete actions for the coming week"]}`;
@@ -1240,7 +1242,7 @@ function insightCard(){
   const sec = (title, items, color) => items && items.length ? `<div class="sec"><label class="f" style="color:${color}">${title}</label>${items.map(x => `<div class="insi">${esc(x)}</div>`).join('')}</div>` : '';
   let h = `<div class="card ai" id="insights"><div class="ch"><h3>AI coach</h3>${r ? `<span class="mu">${ago(r.ts)}</span>` : ''}</div>`;
   if (r) h += `<div style="font-size:16px;font-weight:650">${esc(r.headline)}</div>${sec('Going well', r.wins, 'var(--ac)')}${sec('Watch', r.watch, 'var(--warn)')}${sec('This week', r.next, 'var(--blue)')}`;
-  else h += `<div class="empty">Looks at everything you’ve logged — weight, food, sleep, workouts, water, steps, energy and mood — and tells you how you’re doing and what to do next.</div>`;
+  else h += `<div class="empty">Looks at everything you’ve logged — weight, food, sleep, workouts, recovery and goals — and tells you how you’re doing and what to do next.</div>`;
   if (S.sample) h += `<button class="btn full sec" data-a="insights" ${S.insBusy ? 'disabled' : ''}>${S.insBusy ? 'Analyzing everything…' : r ? '✨ Analyze again' : '✨ Analyze my progress'}</button>`;
   else h += `<div class="note">AI isn’t available in this view.</div>`;
   return h + `<div class="note">AI-written from your logs. A guide, not medical advice.</div></div>`;
