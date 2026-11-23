@@ -1221,7 +1221,7 @@ async function runInsights(){
   if (!S.sample || S.insBusy) return;
   S.insBusy = true; render();
   const prompt = `You are the coach inside a personal fitness tracking app. Below is everything this person has logged (JSON). Analyze all of it together: weight trend against their goal, calories and protein against targets, what they actually eat, sleep (use totalSleepHrs, which includes naps), how often they train and which body parts get trained or neglected, rest days, recovery (sauna, cold plunge, meditation), progress on their per-week and strength goals, and their daily scorecards.
-The app only tracks: weight, food (calories and macros), sleep and naps, workouts (body parts, exercises, sets/reps/weight), rest days, recovery sessions and goals. Never mention or ask them to log water, steps, energy or mood, because the app has no place for them. Many workouts are logged as body parts only, without sets; that is fine, so don't nag about it more than once. A day with no food logged means they didn't log it, not that they ate nothing. A sleep number that looks impossible is probably a logging mistake; mention it at most once, briefly.
+The app only tracks: weight, food (calories and macros), sleep and naps, workouts (body parts, exercises, sets/reps/weight), rest days, recovery sessions and goals. Never mention or ask them to log water, steps, energy or mood, because the app has no place for them. Workouts logged as body parts only, without sets, still count as a workout done. Anything they did not log counts as NOT DONE: a day with no workout and no rest day marked is a missed gym day, no weigh-in is a missed weigh-in, no sleep entry is a missed sleep log, a meal slot with nothing logged is a missed log. Either they didn't have time or didn't make the effort; say so plainly and count those misses in your numbers (for example "logged food on 4 of 14 days"). Still give the full analysis of everything that was logged. A sleep number that looks impossible is probably a logging mistake; mention it at most once, briefly.
 Write for a regular person in plain, direct language. Be specific: quote their real numbers and dates. Look for links between areas (for example sleep vs energy, protein vs target, training frequency vs body parts missed). Be encouraging but honest. If there is little data, say what you can and say which things to log to get better insights. Never recommend extreme dieting, very low calories, or rapid weight loss; keep advice moderate and sensible, and do not give medical advice.
 Data: ${JSON.stringify(insightData())}
 Reply with JSON only: {"headline": "one sentence summing up how they are doing", "wins": ["2-4 short things going well, with numbers"], "watch": ["2-4 short things to watch or fix, with numbers"], "next": ["3 concrete actions for the coming week"]}`;
@@ -1315,7 +1315,8 @@ async function photoMeal(meal, blob){
   try {
     const r = await aiApi.json(`You estimate nutrition for a personal food log from a photo of a meal (${meal.toLowerCase()}).
 Identify every food and drink you can see and judge the portion sizes from the plate, bowl, packaging and anything else in the picture for scale. Estimate totals for everything shown, assuming one person ate it all. If the photo is a nutrition label or menu item, use those numbers.
-If there is no food in the photo, reply {"nofood": true}.
+If the photo shows what is left over after eating (a banana peel, apple core, empty wrapper, packaging, bones, empty bowl or cup), the person ate the food that came with it: log that food at a normal portion, e.g. a banana peel = one medium banana, about 105 cal.
+Only if there is no food and no leftovers in the photo, reply {"nofood": true}.
 Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": integer calories, "p": integer grams protein, "c": integer grams carbs, "f": integer grams fat}`, {images:[blob]});
     if (!r || r.nofood) throw Object.assign(new Error('nofood'), {nofood:true});
     const photo = await up;
@@ -1550,6 +1551,7 @@ MODALS.food = () => {
     <div class="grid2 sec"><div><label class="f">Calories</label><input type="number" inputmode="numeric" data-fd="cal" value="${esc(f.cal)}"></div><div><label class="f">Protein (g)</label><input type="number" inputmode="numeric" data-fd="p" value="${esc(f.p)}"></div>
     <div><label class="f">Carbs (g)</label><input type="number" inputmode="numeric" data-fd="c" value="${esc(f.c)}"></div><div><label class="f">Fat (g)</label><input type="number" inputmode="numeric" data-fd="f" value="${esc(f.f)}"></div></div>
     <button class="btn full sec" data-a="saveFood" ${f.busy ? 'disabled' : ''}>${f.busy ? '<span class="spin"></span> Updating numbers…' : S.foodId ? 'Save changes' : 'Add to ' + esc(f.meal)}</button>
+    ${S.foodId && S.sample ? `<button class="btn2 full sec" data-a="redoFood" ${f.busy ? 'disabled' : ''}>✨ Redo the numbers with AI</button>` : ''}
     ${S.foodId ? `<button class="btn2 full sec" data-a="delFood">Delete</button>` : ''}`;
   return h;
 };
@@ -1590,22 +1592,22 @@ Reply with JSON only, exactly this shape: {"name": "short meal name, max 40 char
 }
 
 
-async function saveFood(){
+async function saveFood(force){
   const f = S.food; if (f.busy) return; if (!f.name.trim()) return toast('Give the food a name.');
   const fid = S.foodId, old = fid ? S.docs.get(fid) : null;
   const id = fid || 'f_' + uid36();
   let vals = {cal:num(f.cal), p:num(f.p), c:num(f.c), f:num(f.f)};
-  const renamed = old && f.name.trim() !== String(old.name || '').trim();
-  const numsSame = old && ['cal','p','c','f'].every(k => num(f[k]) === num(old[k]));
-  if (renamed && numsSame && S.sample) {
+  const renamed = force || (old && f.name.trim() !== String(old.name || '').trim());
+  const numsSame = force || (old && ['cal','p','c','f'].every(k => num(f[k]) === num(old[k])));
+  if (old && renamed && numsSame && S.sample) {
     f.busy = true; renderModal();
     try {
       let img = null;
       if (old.photo) { try { const r = await fetch(blobUrl(old.photo)); if (r.ok) img = await r.blob(); } catch(_) {} }
       const r = await aiApi.json(`You estimate nutrition for a personal food log. An earlier guess for this meal was wrong.
 The earlier guess was: "${String(old.name || '').slice(0, 120)}" (${num(old.cal)} cal).
-The person corrected it. What they actually ate: """${f.name.trim().slice(0, 300)}"""
-${img ? 'A photo of the meal is attached. Trust the person\'s correction for WHAT the foods are, and use the photo to judge portion sizes.' : 'Assume typical portions.'}
+The person says what they actually ate: """${f.name.trim().slice(0, 300)}"""
+${img ? 'A photo of the meal is attached. Trust the person\'s words for WHAT the foods are, and use the photo to judge portion sizes. If the photo shows leftovers (a peel, core, wrapper, empty bowl), they ate the food that came with it.' : 'Assume typical portions.'}
 Reply with JSON only: {"cal": integer calories, "p": integer grams protein, "c": integer grams carbs, "f": integer grams fat}`, img ? {images:[img]} : {});
       if (!r || typeof r !== 'object') throw new Error('bad');
       vals = {cal:Math.round(num(r.cal)), p:Math.round(num(r.p)), c:Math.round(num(r.c)), f:Math.round(num(r.f))};
@@ -1959,6 +1961,7 @@ const A = {
   aiEst: () => aiEstimate(),
   clearImg: () => { S.food.img = null; S.food.imgUrl = null; renderModal(); },
   saveFood: () => saveFood(),
+  redoFood: () => saveFood(true),
   delFood: a => { if (armDelete(a)) { del(S.foodId); closeModal(); } },
   newWo: () => { S.tab = S.tab === 'today' ? 'today' : 'lift'; newWorkout(false); },
   repeatWo: () => newWorkout(true),
