@@ -906,7 +906,7 @@ VIEWS.food = () => {
     <div class="plates">${shots.map(f => `<div class="plate tap" data-a="editFood" data-id="${esc(f.id)}"><img src="${blobUrl(f.photo)}" alt="" loading="lazy"><div class="pc"><b>${esc(f.meal || '')}</b>${fmt(num(f.cal))} cal</div></div>`).join('')}</div></div>`;
   for (const m of MEALS) {
     const items = foods.filter(f => (f.meal || 'Snacks') === m), t = sumFood(items);
-    h += `<div class="card"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${m}"></label></div></div>`;
+    h += `<div class="card"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><button class="btn2" data-a="typeMeal" data-v="${m}">✏️ Type</button><label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${m}"></label></div></div>`;
     h += items.length ? `<div class="list">${items.map(f => `<div class="it">${f.photo ? `<img class="fthumb" src="${blobUrl(f.photo)}" alt="" loading="lazy">` : ''}<div class="main tap" data-a="editFood" data-id="${esc(f.id)}"><div class="nm">${esc(f.name)}</div><div class="sm">${fmt(num(f.cal))} cal · P ${fmt(num(f.p))} · C ${fmt(num(f.c))} · F ${fmt(num(f.f))}</div></div><button class="x" data-a="delDoc" data-id="${esc(f.id)}">Remove</button></div>`).join('')}</div>` : '';
     h += `</div>`;
   }
@@ -1331,6 +1331,37 @@ Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": inte
 
 /* ---------- modals ---------- */
 const MODALS = {};
+MODALS.typeMeal = () => {
+  const j = S.typeJob; if (!j) return '';
+  return `<div class="sh"><b>${esc(j.meal)}</b><button class="btn2" data-a="closeModal">Cancel</button></div>
+    <label class="f">What did you eat?</label>
+    <textarea id="tmDesc" rows="4" placeholder="e.g. 2 eggs, 2 slices of toast with butter, black coffee" ${j.busy ? 'disabled' : ''}>${esc(j.desc)}</textarea>
+    <div class="note">Include amounts if you know them (1 cup, 2 slices, large plate). Tap the 🎤 on your keyboard to talk instead of typing.</div>
+    ${j.err ? `<div class="lg-err">${esc(j.err)}</div>` : ''}
+    <button class="btn full sec" data-a="typeMealGo" ${j.busy ? 'disabled' : ''}>${j.busy ? '<span class="spin"></span> Working out calories…' : 'Add to ' + esc(j.meal)}</button>
+    ${j.err ? `<button class="lnk sec" data-a="typeMealManual">Enter the numbers myself</button>` : ''}`;
+};
+async function typeMeal(){
+  const j = S.typeJob; if (!j || j.busy) return;
+  const el = $('#tmDesc'); if (el) j.desc = el.value;
+  const desc = j.desc.trim(); if (!desc) return toast('Type what you ate first.');
+  j.busy = true; j.err = ''; renderModal();
+  try {
+    const r = await aiApi.json(`You estimate nutrition for a personal food log (${j.meal.toLowerCase()}).
+The person typed what they ate: """${desc.slice(0, 800)}"""
+Estimate totals for everything listed. Use the amounts they give; when an amount is missing assume a typical single portion.
+Reply with JSON only: {"name": "short meal name listing the foods, max 60 characters", "cal": integer calories, "p": integer grams protein, "c": integer grams carbs, "f": integer grams fat}`);
+    if (!r || typeof r !== 'object') throw new Error('bad');
+    if (S.typeJob !== j) return;
+    const name = String(r.name || desc).slice(0, 60);
+    put('f_' + uid36(), {kind:'food', date:S.date, meal:j.meal, name, desc:desc.slice(0, 800), cal:Math.round(num(r.cal)), p:Math.round(num(r.p)), c:Math.round(num(r.c)), f:Math.round(num(r.f)), ts:Date.now()});
+    S.typeJob = null; closeModal(); toast(`Added ${name} — ${fmt(num(r.cal))} cal`);
+  } catch(e) {
+    console.error(e); if (S.typeJob !== j) return;
+    j.busy = false; j.err = e && e.code === 'rate_limited' ? 'Too many at once — wait a minute and try again.' : 'Couldn’t work it out. Check your connection and try again.';
+    renderModal();
+  }
+}
 MODALS.dayPick = () => {
   const ds = S.pickDay, w = dayWorkout(ds), off = !!(S.docs.get('d_'+ds) || {}).off && !w, ps = (w && w.parts) || [];
   const nEx = w ? (w.exercises || []).length : 0;
@@ -1967,6 +1998,9 @@ const A = {
   aiWo: () => { S.voiceType = false; aiWorkout(); },
   voice: () => voiceToggle(),
   voiceClose: () => { S.voiceType = false; renderModal(); },
+  typeMeal: a => { S.typeJob = {meal:a.dataset.v, desc:'', busy:false, err:''}; openModal('typeMeal'); setTimeout(() => { const t = $('#tmDesc'); if (t) t.focus(); }, 80); },
+  typeMealGo: () => typeMeal(),
+  typeMealManual: () => { const j = S.typeJob; S.typeJob = null; openFood(j.meal); if (S.food) { S.food.name = (j.desc || '').trim().slice(0, 60); renderModal(); } },
   mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
   mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
   insights: () => runInsights(),
