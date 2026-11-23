@@ -1504,17 +1504,19 @@ MODALS.food = () => {
   const f = S.food;
   let h = `<div class="sh"><b>${S.foodId ? 'Edit food' : 'Add food'}</b><button class="btn2" data-a="closeModal">Cancel</button></div>
     <div class="chips">${MEALS.map(m => `<button class="chip ${f.meal===m?'on':''}" data-a="meal" data-v="${m}">${m}</button>`).join('')}</div>`;
-  if (S.sample) {
+  const ed = S.foodId ? S.docs.get(S.foodId) : null;
+  if (ed && ed.photo) h += `<img class="preview" style="max-height:28vh;margin-bottom:10px" src="${blobUrl(ed.photo)}" alt="">`;
+  if (S.sample && !S.foodId) {
     h += `<div class="ai sec"><div class="ch" style="margin-bottom:8px"><h3>Estimate with AI</h3></div>
       <textarea data-fd="desc" placeholder="Describe it, e.g. 2 eggs, 2 slices whole wheat toast with butter, coffee with milk">${esc(f.desc)}</textarea>
       <div class="row" style="margin-top:8px">${S.sampleImages ? `<label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="1"></label>` : ''}${f.imgUrl ? `<img class="thumb" src="${f.imgUrl}" alt="Meal photo"><button class="x" data-a="clearImg">Remove</button>` : ''}<span class="grow"></span><button class="btn" data-a="aiEst" ${f.busy ? 'disabled' : ''}>${f.busy ? 'Estimating…' : 'Estimate'}</button></div>
       ${f.note ? `<div class="note">${esc(f.note)}</div>` : ''}
       <div class="note">AI numbers are estimates — adjust if you know the label values.</div></div>`;
   }
-  h += `<div class="sec"><label class="f">Food</label><input data-fd="name" placeholder="e.g. Chicken breast & rice" value="${esc(f.name)}"></div>
+  h += `<div class="sec"><label class="f">Food</label><input data-fd="name" placeholder="e.g. Chicken breast & rice" value="${esc(f.name)}">${S.foodId && S.sample ? `<div class="note">Wrong food? Fix the name (e.g. chicken, beef stew) and the calories, protein, carbs and fat update when you save.</div>` : ''}</div>
     <div class="grid2 sec"><div><label class="f">Calories</label><input type="number" inputmode="numeric" data-fd="cal" value="${esc(f.cal)}"></div><div><label class="f">Protein (g)</label><input type="number" inputmode="numeric" data-fd="p" value="${esc(f.p)}"></div>
     <div><label class="f">Carbs (g)</label><input type="number" inputmode="numeric" data-fd="c" value="${esc(f.c)}"></div><div><label class="f">Fat (g)</label><input type="number" inputmode="numeric" data-fd="f" value="${esc(f.f)}"></div></div>
-    <button class="btn full sec" data-a="saveFood">${S.foodId ? 'Save changes' : 'Add to ' + esc(f.meal)}</button>
+    <button class="btn full sec" data-a="saveFood" ${f.busy ? 'disabled' : ''}>${f.busy ? '<span class="spin"></span> Updating numbers…' : S.foodId ? 'Save changes' : 'Add to ' + esc(f.meal)}</button>
     ${S.foodId ? `<button class="btn2 full sec" data-a="delFood">Delete</button>` : ''}`;
   return h;
 };
@@ -1552,6 +1554,38 @@ Reply with JSON only, exactly this shape: {"name": "short meal name, max 40 char
     else toast('Couldn’t get an estimate. Try again or enter numbers yourself.');
   }
   f.busy = false; if (S.modal === 'food' && S.food === f) renderModal();
+}
+
+
+async function saveFood(){
+  const f = S.food; if (f.busy) return; if (!f.name.trim()) return toast('Give the food a name.');
+  const fid = S.foodId, old = fid ? S.docs.get(fid) : null;
+  const id = fid || 'f_' + uid36();
+  let vals = {cal:num(f.cal), p:num(f.p), c:num(f.c), f:num(f.f)};
+  const renamed = old && f.name.trim() !== String(old.name || '').trim();
+  const numsSame = old && ['cal','p','c','f'].every(k => num(f[k]) === num(old[k]));
+  if (renamed && numsSame && S.sample) {
+    f.busy = true; renderModal();
+    try {
+      let img = null;
+      if (old.photo) { try { const r = await fetch(blobUrl(old.photo)); if (r.ok) img = await r.blob(); } catch(_) {} }
+      const r = await aiApi.json(`You estimate nutrition for a personal food log. An earlier guess for this meal was wrong.
+The earlier guess was: "${String(old.name || '').slice(0, 120)}" (${num(old.cal)} cal).
+The person corrected it. What they actually ate: """${f.name.trim().slice(0, 300)}"""
+${img ? 'A photo of the meal is attached. Trust the person\'s correction for WHAT the foods are, and use the photo to judge portion sizes.' : 'Assume typical portions.'}
+Reply with JSON only: {"cal": integer calories, "p": integer grams protein, "c": integer grams carbs, "f": integer grams fat}`, img ? {images:[img]} : {});
+      if (!r || typeof r !== 'object') throw new Error('bad');
+      vals = {cal:Math.round(num(r.cal)), p:Math.round(num(r.p)), c:Math.round(num(r.c)), f:Math.round(num(r.f))};
+    } catch(e) {
+      console.error(e); f.busy = false;
+      if (S.food === f && S.modal === 'food') renderModal();
+      return toast('Couldn’t update the numbers — check your connection, or type them in.');
+    }
+    f.busy = false;
+  }
+  put(id, {...(old || {}), kind:'food', date: old ? old.date : S.date, meal:f.meal, name:f.name.trim(), ...vals, ts: old ? old.ts : Date.now()});
+  toast(fid ? (renamed && numsSame ? `Updated — ${fmt(vals.cal)} cal` : 'Saved') : `Added to ${f.meal}`);
+  if (S.food === f) closeModal();
 }
 
 /* settings */
@@ -1891,13 +1925,7 @@ const A = {
   quickFood: a => { const f = S.docs.get(a.dataset.id); if (!f) return; const m = guessMeal(); put('f_'+uid36(), {kind:'food', date:S.date, meal:m, name:f.name, cal:num(f.cal), p:num(f.p), c:num(f.c), f:num(f.f), ts:Date.now()}); toast(`Added ${f.name} to ${m}`); },
   aiEst: () => aiEstimate(),
   clearImg: () => { S.food.img = null; S.food.imgUrl = null; renderModal(); },
-  saveFood: () => {
-    const f = S.food; if (!f.name.trim()) return toast('Give the food a name.');
-    const old = S.foodId ? S.docs.get(S.foodId) : null;
-    const id = S.foodId || 'f_' + uid36();
-    put(id, {kind:'food', date: old ? old.date : S.date, meal:f.meal, name:f.name.trim(), cal:num(f.cal), p:num(f.p), c:num(f.c), f:num(f.f), ts: old ? old.ts : Date.now()});
-    toast(S.foodId ? 'Saved' : `Added to ${f.meal}`); closeModal();
-  },
+  saveFood: () => saveFood(),
   delFood: a => { if (armDelete(a)) { del(S.foodId); closeModal(); } },
   newWo: () => { S.tab = S.tab === 'today' ? 'today' : 'lift'; newWorkout(false); },
   repeatWo: () => newWorkout(true),
