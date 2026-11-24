@@ -397,6 +397,24 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
 .lsr{flex:1;min-width:0}.lsk{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mu)}.lsm{font-weight:750;font-size:17px;margin:2px 0 6px}
 .lsdone{display:flex;flex-wrap:wrap;gap:3px}.lsdone span{font-size:17px;opacity:.22;filter:grayscale(1)}.lsdone span.on{opacity:1;filter:none}.lsdone span.half{opacity:.6;filter:none}
 .lsmiss{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}.lsmiss .chip{padding:6px 10px;font-size:13px}
+.bpseg{display:flex;gap:3px;background:#eef0f4;border-radius:12px;padding:3px;margin-top:12px}.bpseg button{flex:1;background:none;border:0;color:#5b6472;font-size:12.5px;font-weight:700;padding:9px 2px;border-radius:9px;white-space:nowrap}.bpseg button.on{background:#fff;color:#12151a;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.bpdue{background:rgba(255,159,10,.14);border:1.5px solid rgba(255,159,10,.45);color:#8a5200;border-radius:12px;padding:9px 12px;font-weight:650;margin-bottom:10px}
+.bps,.bpl{position:relative;margin-top:12px;border-radius:14px;overflow:hidden;background:#111;aspect-ratio:3/4;max-height:62vh;margin-left:auto;margin-right:auto}
+.bps img,.bpl img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}.bps img.top{clip-path:inset(0 calc(100% - var(--x)) 0 0)}
+.bps i{position:absolute;top:0;bottom:0;left:var(--x);width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,.5)}
+.bps i::after{content:'◀ ▶';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#12151a;font-style:normal;font-size:11px;font-weight:800;white-space:nowrap;padding:9px 8px;border-radius:99px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.bps span{position:absolute;bottom:8px;font-size:12px;color:#fff;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:8px}.bps .tl{left:8px}.bps .tr{right:8px}
+.bps input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;-webkit-appearance:none;appearance:none;touch-action:pan-y;cursor:ew-resize}
+.bps input::-webkit-slider-thumb{-webkit-appearance:none;width:56px;height:600px}
+.bplbar{position:absolute;left:0;right:0;top:0;height:4px;background:rgba(255,255,255,.25)}.bplbar i{display:block;height:100%;background:var(--ac);transition:width .3s}
+.bpgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}.bpgrid>div{position:relative;border-radius:10px;overflow:hidden;background:#111}.bpgrid img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}.bpgrid .bpc{font-size:11px;padding:14px 6px 5px}
+.bptl{margin-top:12px}.bpn{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.bpn:first-child{border-top:0}.bpn>img{flex:0 0 64px;width:64px;height:85px;object-fit:cover;border-radius:9px}.bpn .nm{font-weight:700}.bpn .sm{font-size:12.5px;color:var(--mu)}
+.bpnote{font-size:14px;line-height:1.4;background:rgba(79,195,247,.12);border-left:3px solid var(--blue);border-radius:8px;padding:8px 10px;margin-top:6px}
+.bpwst{font-weight:750;font-size:17px;margin-bottom:6px}.bpwst.good{color:#1a9a4a}
+.cam{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:58vh;margin:0 auto}
+.cam video,.cam .ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cam .ghost{opacity:.33;pointer-events:none}.cam .mir{transform:scaleX(-1)}
+#camCount{position:absolute;inset:0;display:grid;place-items:center;font-size:120px;font-weight:850;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.6);pointer-events:none}.camwait{position:absolute;inset:0;display:grid;place-items:center}
+.camrow{display:flex;gap:8px;justify-content:center;margin-top:10px}
 </style>
 </head>
 <body>
@@ -834,7 +852,7 @@ function lineChart(series, {goal=null, h=170}={}){
   let y0 = Math.min(...ys), y1 = Math.max(...ys); const pd = (y1-y0)*0.12 || 2; y0 -= pd; y1 += pd;
   const sx = x => L + (x-x0)/(x1-x0)*(W-L-R), sy = y => T + (1-(y-y0)/(y1-y0))*(H-T-B);
   let g = '';
-  for (let i = 0; i <= 3; i++) { const v = y0 + (y1-y0)*i/3, y = sy(v).toFixed(1); g += `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" class="gl"/><text x="${L-5}" y="${+y+3.5}" class="yl">${Math.round(v)}</text>`; }
+  for (let i = 0; i <= 3; i++) { const v = y0 + (y1-y0)*i/3, y = sy(v).toFixed(1); g += `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" class="gl"/><text x="${L-5}" y="${+y+3.5}" class="yl">${y1 - y0 < 6 ? v.toFixed(1) : Math.round(v)}</text>`; }
   if (goal != null) { const y = sy(goal).toFixed(1); g += `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" class="goal"/><text x="${W-R}" y="${y-4}" class="gt">goal ${goal}</text>`; }
   for (const s of series) {
     if (!s.pts.length) continue;
@@ -1371,60 +1389,189 @@ function logScoreCard(d){
   const r = logScore(d), sc = r.score, pct = sc / 10;
   const col = sc >= 8 ? '52,199,89' : sc >= 5 ? '255,159,10' : '255,69,58';
   const msg = sc >= 10 ? 'Perfect — everything logged 🏆' : sc >= 8 ? 'Great logging day' : sc >= 5 ? 'Halfway there — fill in the rest' : d === today() ? 'Lots left to log today' : 'Not much logged this day';
-  const miss = r.items.filter(x => x.got < x.pts);
+  const miss = r.items.filter(x => x.got < x.pts), due = d === today() && photoDue();
   return `<div class="card lsc" style="--lc:${col}"><div class="lsrow">
     <div class="lsring" style="background:conic-gradient(rgb(var(--lc)) ${pct * 360}deg, rgba(var(--lc),.15) 0)"><div><b>${sc % 1 ? sc.toFixed(1) : sc}</b><span>/10</span></div></div>
     <div class="lsr"><div class="lsk">${d === today() ? 'Today’s' : fmtDate(d, {month:'short', day:'numeric'})} logging score</div><div class="lsm">${msg}</div>
     <div class="lsdone">${r.items.map(x => `<span class="${x.got >= x.pts ? 'on' : x.got ? 'half' : ''}" title="${esc(x.k)}">${x.ic}</span>`).join('')}</div></div></div>
-    ${miss.length ? `<div class="lsmiss"><span class="mu">Still to log:</span>${miss.map(x => `<button class="chip" data-a="lsGo" data-v="${x.tab}">${x.ic} ${esc(x.k)}${x.got ? ' (details)' : ''}</button>`).join('')}</div>` : ''}</div>`;
+    ${miss.length || due ? `<div class="lsmiss"><span class="mu">${miss.length ? 'Still to log:' : 'This week:'}</span>${miss.map(x => `<button class="chip" data-a="lsGo" data-v="${x.tab}">${x.ic} ${esc(x.k)}${x.got ? ' (details)' : ''}</button>`).join('')}${due ? `<button class="chip" data-a="lsGo" data-v="bpCard">📸 Weekly photo</button>` : ''}</div>` : ''}</div>`;
 }
-/* ---------- body photos (private: stored in your own docs, never shared with crew) ---------- */
+/* ---------- body photos (private: stored in your own docs, never shared with crew unless you post one) ---------- */
 const POSES = [['front','Front'],['side','Side'],['back','Back']];
+const BPVIEWS = [['cmp','Before / After'],['lapse','Time-lapse'],['months','Months'],['notes','Notes']];
+const poseLbl = k => (POSES.find(x => x[0] === k) || ['', 'Front'])[1];
+const bpDay = d => fmtDate(d, {month:'short', day:'numeric'});
 function bodyPics(pose){ return all('bodypic').filter(p => !pose || p.pose === pose).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts || 0) - (b.ts || 0)); }
 function weightNear(d){ const w = weightOnOrBefore(d); return w ? round(num(w.lbs), 1) : null; }
+function bpPair(pose){ const ps = bodyPics(pose), last = ps[ps.length - 1], pick = ps.find(p => p.id === (S.bpFrom || {})[pose]); const first = pick && last && pick.id !== last.id ? pick : ps[0]; return [first, last, ps]; }
+function bpGap(a, b){ const days = Math.round((parseYmd(b.date) - parseYmd(a.date)) / 864e5), wa = weightNear(a.date), wb = weightNear(b.date), wd = wa && wb ? round(wb - wa, 1) : null; return `${days} day${days === 1 ? '' : 's'} apart${wd !== null ? ` · ${wd > 0 ? '+' : ''}${wd} lb` : ''}`; }
+function photoDue(){ const ps = bodyPics(); if (!ps.length) return 0; const days = Math.round((parseYmd(today()) - parseYmd(ps[ps.length - 1].date)) / 864e5); return days >= 7 ? days : 0; }
 function bodyPicsCard(){
-  const pose = S.bpPose || 'front', ps = bodyPics(pose), allp = bodyPics(), first = ps[0], last = ps[ps.length - 1], ai = S.docs.get('bpai_' + pose);
-  const cap = p => `<div class="bpc"><b>${fmtDate(p.date, {month:'short', day:'numeric'})}</b>${weightNear(p.date) ? ` · ${weightNear(p.date)} lb` : ''}</div>`;
-  let h = `<div class="card"><div class="ch"><h3>Body photos</h3><span class="mu">🔒 only you see these</span></div>
+  const pose = S.bpPose || 'front', [first, last, ps] = bpPair(pose), lbl = poseLbl(pose).toLowerCase(), due = photoDue();
+  const view = ps.length < 2 ? 'one' : (S.bpView || 'cmp');
+  const cap = p => `<div class="bpc"><b>${bpDay(p.date)}</b>${weightNear(p.date) ? ` · ${weightNear(p.date)} lb` : ''}</div>`;
+  let h = `<div class="card" id="bpCard"><div class="ch"><h3>Body photos</h3><span class="mu">🔒 only you see these</span></div>
+    ${due ? `<div class="bpdue">📸 Photo day — your last one was ${due} days ago</div>` : ''}
     <div class="chips">${POSES.map(([k, l]) => `<button class="chip ${pose === k ? 'on' : ''}" data-a="bpPose" data-v="${k}">${l}${bodyPics(k).length ? ` · ${bodyPics(k).length}` : ''}</button>`).join('')}</div>`;
-  if (first && last && first !== last) {
-    const days = Math.round((parseYmd(last.date) - parseYmd(first.date)) / 864e5), wd = weightNear(first.date) && weightNear(last.date) ? round(weightNear(last.date) - weightNear(first.date), 1) : null;
-    h += `<div class="bpcmp"><div class="tap" data-a="bpOpen" data-id="${esc(first.id)}"><img src="${first.img}" alt="">${cap(first)}</div><div class="tap" data-a="bpOpen" data-id="${esc(last.id)}"><img src="${last.img}" alt="">${cap(last)}</div></div>
-      <div class="note" style="text-align:center">${days} days apart${wd !== null ? ` · ${wd > 0 ? '+' : ''}${wd} lb` : ''}</div>`;
-    if (S.sample) h += `<button class="btn2 full sec" data-a="bpAi" ${S.bpBusy ? 'disabled' : ''}>${S.bpBusy ? '<span class="spin"></span> Comparing…' : '✨ What’s changed? (AI)'}</button>`;
+  if (ps.length >= 2) h += `<div class="bpseg">${BPVIEWS.map(([k, l]) => `<button class="${view === k ? 'on' : ''}" data-a="bpView" data-v="${k}">${l}</button>`).join('')}</div>`;
+
+  if (view === 'one') {
+    h += last ? `<div class="bpcmp one"><div class="tap" data-a="bpOpen" data-id="${esc(last.id)}"><img src="${last.img}" alt="">${cap(last)}</div></div><div class="note">Take another ${lbl} photo in a week to unlock the before/after slider, time-lapse and AI notes.</div>`
+      : `<div class="empty">Take a ${lbl} photo now. Same spot, same light, same time of day (morning works best) so the changes are real.</div>`;
+  } else if (view === 'cmp') {
+    const ai = S.docs.get('bpai_' + pose);
+    h += `<div class="bps" style="--x:50%"><img src="${last.img}" alt=""><img class="top" src="${first.img}" alt=""><i></i>
+        <span class="tl"><b>${bpDay(first.date)}</b>${weightNear(first.date) ? ` · ${weightNear(first.date)} lb` : ''}</span><span class="tr"><b>${bpDay(last.date)}</b>${weightNear(last.date) ? ` · ${weightNear(last.date)} lb` : ''}</span>
+        <input type="range" min="0" max="100" value="50" data-bps="1" aria-label="Slide to compare"></div>
+      <div class="note" style="text-align:center">◀ slide ▶ · ${bpGap(first, last)}</div>
+      <div class="grid2 sec">${S.sample ? `<button class="btn2" data-a="bpAi" ${S.bpBusy ? 'disabled' : ''}>${S.bpBusy ? '<span class="spin"></span> Comparing…' : '✨ What’s changed?'}</button>` : ''}<button class="btn2" data-a="bpShare">📣 Share with crew</button></div>`;
     if (ai && ai.firstId === first.id && ai.lastId === last.id) h += `<div class="sec"><div style="font-weight:650">${esc(ai.summary)}</div>${(ai.changes || []).map(x => `<div class="insi">${esc(x)}</div>`).join('')}${ai.tip ? `<div class="insi" style="border-left:3px solid var(--ac)">👉 ${esc(ai.tip)}</div>` : ''}</div>`;
-  } else if (last) h += `<div class="bpcmp one"><div class="tap" data-a="bpOpen" data-id="${esc(last.id)}"><img src="${last.img}" alt="">${cap(last)}</div></div><div class="note">Take another ${POSES.find(x => x[0] === pose)[1].toLowerCase()} photo in a week or two to see the before and after.</div>`;
-  else h += `<div class="empty">Take a ${POSES.find(x => x[0] === pose)[1].toLowerCase()} photo now. Same spot, same light, same time of day (morning works best) so the changes are real.</div>`;
-  h += `<label class="btn full filebtn sec">📷 Add ${POSES.find(x => x[0] === pose)[1].toLowerCase()} photo<input type="file" accept="image/*" data-file="bodypic"></label>`;
-  if (ps.length > 2) h += `<div class="bpstrip">${ps.slice().reverse().map(p => `<div class="tap" data-a="bpOpen" data-id="${esc(p.id)}"><img src="${p.img}" alt="" loading="lazy"><span>${fmtDate(p.date, {month:'short', day:'numeric'})}</span></div>`).join('')}</div>`;
-  return h + `</div>`;
+  } else if (view === 'lapse') {
+    const i = Math.min(S.bpLapseI || 0, ps.length - 1), p = ps[i];
+    h += `<div class="bpl"><img id="bplImg" src="${p.img}" alt=""><div class="bpc" id="bplCap"><b>${bpDay(p.date)}</b>${weightNear(p.date) ? ` · ${weightNear(p.date)} lb` : ''}</div><div class="bplbar"><i id="bplBar" style="width:${(i + 1) / ps.length * 100}%"></i></div></div>
+      <button class="btn full sec" data-a="bpPlay" id="bplBtn">${S.bpTimer ? '⏸ Pause' : '▶ Play time-lapse'}</button>
+      <div class="note" style="text-align:center">${ps.length} photos · ${bpGap(ps[0], last)}</div>`;
+  } else if (view === 'months') {
+    const byM = new Map(); ps.forEach(p => byM.set(p.date.slice(0, 7), p));
+    h += `<div class="bpgrid">${[...byM.values()].map(p => `<div class="tap" data-a="bpOpen" data-id="${esc(p.id)}"><img src="${p.img}" alt="" loading="lazy"><div class="bpc"><b>${fmtDate(p.date, {month:'short'})}</b>${weightNear(p.date) ? ` · ${weightNear(p.date)}` : ''}</div></div>`).join('')}</div>
+      <div class="note">The last photo from each month. Tap one to open it.</div>`;
+  } else {
+    h += `<div class="bptl">${ps.slice().reverse().map(p => { const idx = ps.indexOf(p), prev = ps[idx - 1];
+      return `<div class="bpn"><img class="tap" data-a="bpOpen" data-id="${esc(p.id)}" src="${p.img}" alt="" loading="lazy"><div><div class="nm">${bpDay(p.date)}${weightNear(p.date) ? ` · ${weightNear(p.date)} lb` : ''}</div>
+        ${prev ? `<div class="sm">${bpGap(prev, p).replace(' apart', ' after the last one')}</div>` : '<div class="sm">Starting point</div>'}
+        ${p.note ? `<div class="bpnote">${esc(p.note)}</div>` : prev && S.sample ? `<button class="chip" style="margin-top:6px" data-a="bpNote" data-id="${esc(p.id)}" ${S.bpNoteBusy === p.id ? 'disabled' : ''}>${S.bpNoteBusy === p.id ? '<span class="spin"></span> Looking…' : '✨ What changed?'}</button>` : ''}</div></div>`; }).join('')}</div>`;
+  }
+  h += `<div class="grid2 sec"><button class="btn" data-a="bpCam">📷 Take ${lbl} photo</button><label class="btn2 filebtn">🖼️ From library<input type="file" accept="image/*" data-file="bodypic"></label></div>`;
+  return h + `</div>` + waistCard();
 }
+function waistCard(){
+  const ws = all('weight').filter(w => num(w.waist) > 0).sort(byDate);
+  if (!ws.length) return `<div class="card"><div class="ch"><h3>Waist</h3></div><div class="empty">Add your waist in the Weight box above when you weigh in. It’s the most honest number for losing your gut, and it gets charted here.</div></div>`;
+  const a = ws[0], b = ws[ws.length - 1], ch = round(num(b.waist) - num(a.waist), 2);
+  return `<div class="card"><div class="ch"><h3>Waist</h3><span class="mu">${ws.length > 1 ? `${a.waist}″ → ${b.waist}″` : `${b.waist}″`}</span></div>
+    ${ws.length > 1 ? `<div class="bpwst ${ch < 0 ? 'good' : ''}">${ch === 0 ? 'No change yet' : `${ch > 0 ? '+' : '−'}${Math.abs(ch)}″ since ${bpDay(a.date)}`}</div>${lineChart([{pts:ws.map(w => ({x:dnum(w.date), y:num(w.waist)})), color:'var(--blue)', dots:true, w:2.5, r:3}], {h:150})}` : '<div class="note">Measure again next week to start the chart. Same spot each time: around your belly button, relaxed.</div>'}</div>`;
+}
+const blobToDataUrl = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob); });
 async function addBodyPic(file){
-  const blob = await shrink(file, 720);
-  const img = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob); });
-  const pose = S.bpPose || 'front';
-  put('bp_' + uid36(), {kind:'bodypic', date:S.date, pose, img, ts:Date.now()});
+  const blob = await shrink(file, 720), img = await blobToDataUrl(blob), pose = S.bpPose || 'front', id = 'bp_' + uid36();
+  const hadPrev = bodyPics(pose).some(p => p.date <= S.date);
+  put(id, {kind:'bodypic', date:S.date, pose, img, ts:Date.now()});
   toast('Photo saved 🔒');
+  if (hadPrev && S.sample) bodyPicNote(id, true);
 }
+const bpBlob = async u => (await fetch(u)).blob();
+const BP_RULES = `Compare only visible physique changes: belly and waistline, chest, shoulders, arms, posture, overall leanness. Be specific about what changed and where. If lighting, angle or clothing differ enough to make the comparison unreliable, say so. If you honestly can't see a change yet, say that plainly. No medical claims, no body-fat percentages, nothing about attractiveness.`;
 async function bodyPicAi(){
-  const pose = S.bpPose || 'front', ps = bodyPics(pose), first = ps[0], last = ps[ps.length - 1];
+  const pose = S.bpPose || 'front', [first, last] = bpPair(pose);
   if (!first || first === last || S.bpBusy) return;
   S.bpBusy = true; render();
   try {
-    const st = settings(), toBlob = async u => (await fetch(u)).blob();
+    const st = settings();
     const r = await aiApi.json(`You are a supportive, honest fitness coach looking at two ${pose} progress photos of the same person.
 Image 1 is from ${first.date}${weightNear(first.date) ? ` at ${weightNear(first.date)} lb` : ''}. Image 2 is from ${last.date}${weightNear(last.date) ? ` at ${weightNear(last.date)} lb` : ''}.
 ${st.myGoals ? `Their goals in their own words: "${String(st.myGoals).slice(0, 300)}".` : ''}
-Compare only visible physique changes: belly and waistline, chest, shoulders, arms, posture, overall leanness. Be specific about what changed and where. If lighting, angle or clothing differ enough to make the comparison unreliable, say so. If you honestly can't see a change yet, say that plainly. No medical claims, no body-fat percentages, nothing about attractiveness.
-Reply with JSON only: {"summary": "one sentence", "changes": ["2-4 short observations"], "tip": "one practical tip for their next few weeks toward their goal"}`, {images:[await toBlob(first.img), await toBlob(last.img)]});
+${BP_RULES}
+Reply with JSON only: {"summary": "one sentence", "changes": ["2-4 short observations"], "tip": "one practical tip for their next few weeks toward their goal"}`, {images:[await bpBlob(first.img), await bpBlob(last.img)]});
     put('bpai_' + pose, {kind:'bpai', pose, firstId:first.id, lastId:last.id, summary:String(r.summary || '').slice(0, 300), changes:(Array.isArray(r.changes) ? r.changes : []).slice(0, 5).map(x => String(x).slice(0, 300)), tip:String(r.tip || '').slice(0, 300), ts:Date.now()});
   } catch(e) { console.error(e); toast('Couldn’t compare right now (' + String((e && e.message) || 'error').slice(0, 60) + ').'); }
   S.bpBusy = false; render();
 }
+async function bodyPicNote(id, quiet){
+  const p = S.docs.get(id); if (!p || S.bpNoteBusy) return;
+  const ps = bodyPics(p.pose), prev = ps[ps.findIndex(x => x.id === id) - 1]; if (!prev) return;
+  S.bpNoteBusy = id; render();
+  try {
+    const st = settings();
+    const r = await aiApi.json(`You are a supportive, honest fitness coach looking at two ${p.pose} progress photos of the same person.
+Image 1 is the earlier photo from ${prev.date}${weightNear(prev.date) ? ` at ${weightNear(prev.date)} lb` : ''}. Image 2 is the newer photo from ${p.date}${weightNear(p.date) ? ` at ${weightNear(p.date)} lb` : ''}.
+${st.myGoals ? `Their goals in their own words: "${String(st.myGoals).slice(0, 300)}".` : ''}
+${BP_RULES}
+Reply with JSON only: {"note": "one or two short sentences, under 35 words, on what changed since the earlier photo"}`, {images:[await bpBlob(prev.img), await bpBlob(p.img)]});
+    const cur = S.docs.get(id); if (cur && r && r.note) put(id, {...cur, note:String(r.note).slice(0, 300)});
+  } catch(e) { console.error(e); if (!quiet) toast('Couldn’t get a note right now (' + String((e && e.message) || 'error').slice(0, 60) + ').'); }
+  S.bpNoteBusy = null; render();
+}
+/* time-lapse */
+function lapseStop(){ if (S.bpTimer) { clearInterval(S.bpTimer); S.bpTimer = null; } const b = $('#bplBtn'); if (b) b.textContent = '▶ Play time-lapse'; }
+function lapseShow(){
+  const ps = bodyPics(S.bpPose || 'front'), img = $('#bplImg'); if (!img || !ps.length) return lapseStop();
+  const i = S.bpLapseI = (S.bpLapseI || 0) % ps.length, p = ps[i];
+  img.src = p.img; $('#bplCap').innerHTML = `<b>${bpDay(p.date)}</b>${weightNear(p.date) ? ` · ${weightNear(p.date)} lb` : ''}`; $('#bplBar').style.width = (i + 1) / ps.length * 100 + '%';
+}
+function lapsePlay(){
+  if (S.bpTimer) return lapseStop();
+  const n = bodyPics(S.bpPose || 'front').length; if (n < 2) return;
+  if ((S.bpLapseI || 0) >= n - 1) { S.bpLapseI = 0; lapseShow(); }
+  S.bpTimer = setInterval(() => { if (!$('#bplImg')) return lapseStop(); S.bpLapseI = (S.bpLapseI || 0) + 1; if (S.bpLapseI >= n) { S.bpLapseI = n - 1; return lapseStop(); } lapseShow(); }, 800);
+  const b = $('#bplBtn'); if (b) b.textContent = '⏸ Pause';
+}
+/* share a before/after with the crew (only when you tap it, then confirm) */
+async function bpShare(){
+  const pose = S.bpPose || 'front', [a, b] = bpPair(pose); if (!a || !b || a === b) return;
+  const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  try {
+    const W = 1080, PH = 720, c = document.createElement('canvas'); c.width = W; c.height = PH + 90; const x = c.getContext('2d');
+    x.fillStyle = '#0b0d10'; x.fillRect(0, 0, c.width, c.height);
+    const imgs = [await load(a.img), await load(b.img)];
+    imgs.forEach((im, i) => { const tw = W / 2 - 3, s = Math.max(tw / im.width, PH / im.height), sw = tw / s, sh = PH / s; x.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, i * (W / 2 + 3), 0, tw, PH);
+      const g = x.createLinearGradient(0, PH - 110, 0, PH); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.75)'); x.fillStyle = g; x.fillRect(i * (W / 2 + 3), PH - 110, tw, 110);
+      const p = i ? b : a; x.fillStyle = '#fff'; x.font = '700 34px system-ui,-apple-system,sans-serif'; x.fillText(`${bpDay(p.date)}${weightNear(p.date) ? ' · ' + weightNear(p.date) + ' lb' : ''}`, i * (W / 2 + 3) + 22, PH - 24); });
+    x.fillStyle = '#c6f432'; x.font = '800 36px system-ui,-apple-system,sans-serif'; x.fillText('LIGHTWEIGHT', 24, PH + 58);
+    x.fillStyle = '#fff'; x.font = '600 32px system-ui,-apple-system,sans-serif'; x.textAlign = 'right'; x.fillText(bpGap(a, b), W - 24, PH + 58);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+    S.pic = {blob, url:URL.createObjectURL(blob), caption:`${poseLbl(pose)} progress · ${bpGap(a, b)}`.slice(0, 140), busy:false, warn:true}; openModal('pic');
+  } catch(e) { console.error(e); toast('Couldn’t make the picture.'); }
+}
+/* in-app camera with a ghost outline of your last photo */
+function camStop(){ const c = S.cam; if (!c) return; if (c.count) clearInterval(c.count); if (c.stream) c.stream.getTracks().forEach(t => t.stop()); S.cam = null; }
+function camAttach(){ const v = $('#camV'), c = S.cam; if (v && c && c.stream && v.srcObject !== c.stream) { v.srcObject = c.stream; v.play().catch(() => {}); } }
+async function camStart(){
+  const c = S.cam; if (!c) return;
+  if (c.stream) { c.stream.getTracks().forEach(t => t.stop()); c.stream = null; }
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('none');
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:c.facing, width:{ideal:1440}, height:{ideal:1080}}, audio:false});
+    if (S.cam !== c) return stream.getTracks().forEach(t => t.stop());
+    c.stream = stream; c.err = false;
+  } catch(e) { console.error(e); if (S.cam !== c) return; c.err = true; }
+  if (S.modal === 'bpCam') renderModal();
+}
+function camOpen(){
+  lapseStop();
+  const ps = bodyPics(S.bpPose || 'front');
+  S.cam = {facing:'user', ghost:true, timer:0, last:ps.length ? ps[ps.length - 1].img : null, stream:null, err:false, count:null, left:0};
+  openModal('bpCam'); camStart();
+}
+function camShoot(){
+  const c = S.cam, v = $('#camV'); if (!c || !v || !v.videoWidth) return;
+  const vw = v.videoWidth, vh = v.videoHeight, r = 3 / 4; let sw = vw, sh = vh; if (vw / vh > r) sw = vh * r; else sh = vw / r;
+  const cv = document.createElement('canvas'); cv.width = 720; cv.height = 960;
+  cv.getContext('2d').drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, 720, 960);
+  cv.toBlob(b => { if (!b) return toast('Couldn’t take the photo.'); closeModal(); addBodyPic(b); }, 'image/jpeg', 0.85);
+}
+function camGo(){
+  const c = S.cam; if (!c || c.count) return;
+  if (!c.timer) return camShoot();
+  c.left = c.timer; const show = () => { const el = $('#camCount'); if (el) el.textContent = c.left > 0 ? c.left : ''; }; show();
+  c.count = setInterval(() => { if (S.cam !== c) return clearInterval(c.count); c.left--; show(); if (c.left <= 0) { clearInterval(c.count); c.count = null; camShoot(); } }, 1000);
+}
+MODALS.bpCam = () => {
+  const c = S.cam; if (!c) return '';
+  const head = `<div class="sh"><b>${poseLbl(S.bpPose || 'front')} photo</b><button class="btn2" data-a="closeModal">Cancel</button></div>`;
+  if (c.err) return head + `<div class="empty">The camera couldn’t open inside the app. Use your phone’s camera instead.</div><label class="btn full filebtn sec">📷 Open camera<input type="file" accept="image/*" capture="user" data-file="bodypic"></label>`;
+  const mir = c.facing === 'user' ? ' mir' : '';
+  return head + `<div class="cam"><video id="camV" class="${mir}" playsinline autoplay muted></video>${c.ghost && c.last ? `<img class="ghost${mir}" src="${c.last}" alt="">` : ''}<div id="camCount"></div>${c.stream ? '' : '<div class="camwait"><span class="spin"></span></div>'}</div>
+    <div class="note" style="text-align:center">${c.last ? (c.ghost ? 'Line yourself up with the faint outline of your last photo.' : 'Guide is off.') : 'Stand back so your head to your knees fits. Your next photo will show this one as a guide.'}</div>
+    <div class="camrow">${c.last ? `<button class="chip ${c.ghost ? 'on' : ''}" data-a="camGhost">👻 Guide</button>` : ''}<button class="chip" data-a="camFlip">🔄 Flip</button><button class="chip ${c.timer ? 'on' : ''}" data-a="camTimer">⏱ ${c.timer ? c.timer + ' s' : 'Timer off'}</button></div>
+    <button class="btn full sec" data-a="camGo" ${c.stream ? '' : 'disabled'}>📸 Take photo</button>`;
+};
 MODALS.bodyPic = () => {
   const p = S.docs.get(S.bpId); if (!p) return '';
-  return `<div class="sh"><b>${esc(fmtDate(p.date, {weekday:'short', month:'short', day:'numeric'}))} · ${esc((POSES.find(x => x[0] === p.pose) || ['', ''])[1])}</b><button class="btn" data-a="closeModal">Done</button></div>
+  const ps = bodyPics(p.pose), isLast = ps.length && ps[ps.length - 1].id === S.bpId;
+  return `<div class="sh"><b>${esc(fmtDate(p.date, {weekday:'short', month:'short', day:'numeric'}))} · ${esc(poseLbl(p.pose))}</b><button class="btn" data-a="closeModal">Done</button></div>
     <img class="preview" src="${p.img}" alt="">${weightNear(p.date) ? `<div class="note" style="text-align:center">${weightNear(p.date)} lb</div>` : ''}
+    ${p.note ? `<div class="bpnote sec">${esc(p.note)}</div>` : ''}
+    ${ps.length > 2 && !isLast ? `<button class="btn2 full sec" data-a="bpFrom">Use as my “before” photo</button>` : ''}
     <button class="btn2 full sec" data-a="bpDel">Delete photo</button>`;
 };
 MODALS.typeMeal = () => {
@@ -1535,11 +1682,13 @@ async function doInstall(){
 
 function renderModal(){
   const m = $('#modal');
+  if (S.modal !== 'bpCam') camStop();
   if (!S.modal) { m.classList.remove('open'); m.innerHTML = ''; document.body.classList.remove('lock'); return; }
   const prev = m.querySelector('.sheet'), top = prev ? prev.scrollTop : 0;
   m.innerHTML = `<div class="back" data-a="closeModal"></div><div class="sheet">${MODALS[S.modal]()}</div>`;
   m.classList.add('open'); document.body.classList.add('lock');
   m.querySelector('.sheet').scrollTop = top;
+  if (S.modal === 'bpCam') camAttach();
 }
 
 /* workout */
@@ -2014,6 +2163,7 @@ MODALS.pic = () => {
   const p = S.pic;
   return `<div class="sh"><b>Post a photo</b><button class="btn2" data-a="closeModal">Cancel</button></div>
     <img class="preview" src="${p.url}" alt="">
+    ${p.warn ? '<div class="note">Everyone in your crew will see this picture. Your other body photos stay private.</div>' : ''}
     <div class="sec"><label class="f">Caption (optional)</label><input data-pc="caption" maxlength="140" placeholder="e.g. New deadlift PR" value="${esc(p.caption)}"></div>
     <button class="btn full sec" data-a="postPic" ${p.busy ? 'disabled' : ''}>${p.busy ? 'Posting…' : 'Post to the crew'}</button>`;
 };
@@ -2030,7 +2180,8 @@ MODALS.me = () => {
 
 /* ---------- actions ---------- */
 const A = {
-  lsGo: a => { const v = a.dataset.v; if (v.endsWith('Card')) { const el = document.getElementById(v); if (el) el.scrollIntoView({behavior:'smooth', block:'start'}); return; } S.tab = v; render(); window.scrollTo(0,0); },
+  lsGo: a => { const v = a.dataset.v; if (v === 'bpCard') { S.tab = 'body'; render(); const el = document.getElementById(v); if (el) el.scrollIntoView({block:'start'}); return; }
+    if (v.endsWith('Card')) { const el = document.getElementById(v); if (el) el.scrollIntoView({behavior:'smooth', block:'start'}); return; } S.tab = v; render(); window.scrollTo(0,0); },
   tab: a => { S.tab = a.dataset.v; render(); window.scrollTo(0,0); },
   day: a => { const n = addDays(S.date, +a.dataset.v); if (n <= today()) { S.date = n; render(); } },
   goToday: () => { S.date = today(); render(); },
@@ -2104,9 +2255,19 @@ const A = {
   typeMeal: a => { S.typeJob = {meal:a.dataset.v, desc:'', busy:false, err:''}; openModal('typeMeal'); setTimeout(() => { const t = $('#tmDesc'); if (t) t.focus(); }, 80); },
   typeMealGo: () => typeMeal(),
   typeMealManual: () => { const j = S.typeJob; S.typeJob = null; openFood(j.meal); if (S.food) { S.food.name = (j.desc || '').trim().slice(0, 60); renderModal(); } },
-  bpPose: a => { S.bpPose = a.dataset.v; render(); },
-  bpOpen: a => { S.bpId = a.dataset.id; openModal('bodyPic'); },
+  bpPose: a => { lapseStop(); S.bpPose = a.dataset.v; S.bpLapseI = 0; render(); },
+  bpView: a => { lapseStop(); S.bpView = a.dataset.v; if (S.bpView === 'lapse') S.bpLapseI = 0; render(); },
+  bpOpen: a => { lapseStop(); S.bpId = a.dataset.id; openModal('bodyPic'); },
   bpAi: () => bodyPicAi(),
+  bpNote: a => bodyPicNote(a.dataset.id),
+  bpPlay: () => lapsePlay(),
+  bpShare: () => bpShare(),
+  bpFrom: () => { const p = S.docs.get(S.bpId); if (!p) return; S.bpFrom = {...(S.bpFrom || {}), [p.pose]:S.bpId}; S.bpPose = p.pose; S.bpView = 'cmp'; closeModal(); toast('Set as your before photo'); },
+  bpCam: () => camOpen(),
+  camGhost: () => { S.cam.ghost = !S.cam.ghost; renderModal(); },
+  camFlip: () => { S.cam.facing = S.cam.facing === 'user' ? 'environment' : 'user'; camStart(); },
+  camTimer: () => { S.cam.timer = S.cam.timer === 0 ? 5 : S.cam.timer === 5 ? 10 : 0; renderModal(); },
+  camGo: () => camGo(),
   bpDel: a => { if (armDelete(a)) { del(S.bpId); S.bpId = null; closeModal(); toast('Photo deleted'); } },
   mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
   mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
@@ -2234,6 +2395,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.dataset.bps) { t.parentNode.style.setProperty('--x', t.value + '%'); return; }
   if (t.dataset.wo && S.wo) { S.wo[t.dataset.wo] = t.value; if (t.dataset.wo === 'desc') return; saveWo(); if (t.dataset.wo === 'start' || t.dataset.wo === 'end') { const d = $('#woDur'); if (d) d.textContent = durTxt(woMins(S.wo)); } }
   else if (t.dataset.q && S.wo) { const [i, k] = t.dataset.q.split(','); setQuick(+i, k, t.value); saveWo(); }
   else if (t.dataset.set && S.wo) {
