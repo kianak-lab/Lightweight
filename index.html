@@ -1524,7 +1524,12 @@ async function bpShare(){
 }
 /* in-app camera with a ghost outline of your last photo */
 function camStop(){ const c = S.cam; if (!c) return; if (c.count) clearInterval(c.count); if (c.stream) c.stream.getTracks().forEach(t => t.stop()); S.cam = null; }
-function camAttach(){ const v = $('#camV'), c = S.cam; if (v && c && c.stream && v.srcObject !== c.stream) { v.srcObject = c.stream; v.play().catch(() => {}); } }
+function camAttach(){
+  const slot = $('#camSlot'), c = S.cam; if (!slot || !c || !c.stream) return;
+  if (!c.video) { const v = c.video = document.createElement('video'); v.id = 'camV'; v.muted = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); }
+  const v = c.video; if (v.srcObject !== c.stream) v.srcObject = c.stream;
+  v.className = c.facing === 'user' ? 'mir' : ''; slot.replaceWith(v); v.play().catch(() => {});
+}
 async function camStart(){
   const c = S.cam; if (!c) return;
   if (c.stream) { c.stream.getTracks().forEach(t => t.stop()); c.stream = null; }
@@ -1543,7 +1548,8 @@ function camOpen(){
   openModal('bpCam'); camStart();
 }
 function camShoot(){
-  const c = S.cam, v = $('#camV'); if (!c || !v || !v.videoWidth) return;
+  const c = S.cam, v = c && c.video; if (!c || !v) return;
+  if (!v.videoWidth) { v.addEventListener('loadeddata', () => camShoot(), {once:true}); return; }
   const vw = v.videoWidth, vh = v.videoHeight, r = 3 / 4; let sw = vw, sh = vh; if (vw / vh > r) sw = vh * r; else sh = vw / r;
   const cv = document.createElement('canvas'); cv.width = 720; cv.height = 960;
   cv.getContext('2d').drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, 720, 960);
@@ -1560,7 +1566,7 @@ MODALS.bpCam = () => {
   const head = `<div class="sh"><b>${poseLbl(S.bpPose || 'front')} photo</b><button class="btn2" data-a="closeModal">Cancel</button></div>`;
   if (c.err) return head + `<div class="empty">The camera couldn’t open inside the app. Use your phone’s camera instead.</div><label class="btn full filebtn sec">📷 Open camera<input type="file" accept="image/*" capture="user" data-file="bodypic"></label>`;
   const mir = c.facing === 'user' ? ' mir' : '';
-  return head + `<div class="cam"><video id="camV" class="${mir}" playsinline autoplay muted></video>${c.ghost && c.last ? `<img class="ghost${mir}" src="${c.last}" alt="">` : ''}<div id="camCount"></div>${c.stream ? '' : '<div class="camwait"><span class="spin"></span></div>'}</div>
+  return head + `<div class="cam"><div id="camSlot"></div>${c.ghost && c.last ? `<img class="ghost${mir}" src="${c.last}" alt="">` : ''}<div id="camCount"></div>${c.stream ? '' : '<div class="camwait"><span class="spin"></span></div>'}</div>
     <div class="note" style="text-align:center">${c.last ? (c.ghost ? 'Line yourself up with the faint outline of your last photo.' : 'Guide is off.') : 'Stand back so your head to your knees fits. Your next photo will show this one as a guide.'}</div>
     <div class="camrow">${c.last ? `<button class="chip ${c.ghost ? 'on' : ''}" data-a="camGhost">👻 Guide</button>` : ''}<button class="chip" data-a="camFlip">🔄 Flip</button><button class="chip ${c.timer ? 'on' : ''}" data-a="camTimer">⏱ ${c.timer ? c.timer + ' s' : 'Timer off'}</button></div>
     <button class="btn full sec" data-a="camGo" ${c.stream ? '' : 'disabled'}>📸 Take photo</button>`;
