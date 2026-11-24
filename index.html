@@ -386,6 +386,10 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
 .newc h3{color:var(--act)}
 .sbn{background:#fff;color:var(--mu)}
 .mygoal{background:rgba(255,99,146,.1);border:1.5px solid rgba(255,99,146,.35);color:#b0244f;border-radius:12px;padding:10px 12px;font-weight:650;margin-bottom:10px;line-height:1.35}
+.bpcmp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.bpcmp.one{grid-template-columns:1fr}
+.bpcmp>div{position:relative;border-radius:12px;overflow:hidden;background:#111}.bpcmp img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}.bpcmp.one img{aspect-ratio:auto;max-height:46vh;object-fit:contain}
+.bpc{position:absolute;left:0;right:0;bottom:0;padding:16px 8px 6px;font-size:12px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+.bpstrip{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:4px}.bpstrip>div{flex:0 0 72px;text-align:center;font-size:11px;color:var(--mu)}.bpstrip img{width:72px;height:96px;object-fit:cover;border-radius:8px;display:block;margin-bottom:3px}
 </style>
 </head>
 <body>
@@ -595,7 +599,7 @@ const blobToB64 = b => new Promise((res, rej) => { const r = new FileReader(); r
 const aiApi = {
   async json(prompt, opts = {}){
     const body = {prompt};
-    if (opts.images && opts.images[0]) body.image = await blobToB64(opts.images[0]);
+    if (opts.images && opts.images[0]) { body.images = await Promise.all(opts.images.slice(0, 3).map(blobToB64)); body.image = body.images[0]; }
     const {data:sess} = await sb.auth.getSession();
     const token = sess && sess.session ? sess.session.access_token : '';
     const res = await fetch('https://thefloorplanguy.ca/api/lw-ai', {method:'POST', headers:{'content-type':'application/json', authorization:'Bearer ' + token}, body:JSON.stringify(body)});
@@ -948,6 +952,7 @@ VIEWS.body = () => {
     <div><label class="f">Waist (in) — optional</label><input id="waistIn" type="number" inputmode="decimal" step="0.25" value="${w && w.waist ? esc(w.waist) : ''}"></div></div>
     <button class="btn full" style="margin-top:10px" data-a="saveBody">${w ? 'Update' : 'Save'} weight</button></div>`;
 
+  h += bodyPicsCard();
   const bed = sl ? sl.bed : '23:00', wake = sl ? sl.wake : '07:00';
   h += `<div class="card"><div class="ch"><h3>Sleep</h3><span class="mu">Night before ${d === today() ? 'this morning' : fmtDate(d, {month:'short', day:'numeric'})}</span></div>
     <div class="grid2"><div><label class="f">Went to bed</label><input id="sBed" type="time" value="${esc(bed)}"></div><div><label class="f">Woke up</label><input id="sWake" type="time" value="${esc(wake)}"></div></div>
@@ -1336,6 +1341,55 @@ Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": inte
 
 /* ---------- modals ---------- */
 const MODALS = {};
+/* ---------- body photos (private: stored in your own docs, never shared with crew) ---------- */
+const POSES = [['front','Front'],['side','Side'],['back','Back']];
+function bodyPics(pose){ return all('bodypic').filter(p => !pose || p.pose === pose).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts || 0) - (b.ts || 0)); }
+function weightNear(d){ const w = weightOnOrBefore(d); return w ? round(num(w.lbs), 1) : null; }
+function bodyPicsCard(){
+  const pose = S.bpPose || 'front', ps = bodyPics(pose), allp = bodyPics(), first = ps[0], last = ps[ps.length - 1], ai = S.docs.get('bpai_' + pose);
+  const cap = p => `<div class="bpc"><b>${fmtDate(p.date, {month:'short', day:'numeric'})}</b>${weightNear(p.date) ? ` · ${weightNear(p.date)} lb` : ''}</div>`;
+  let h = `<div class="card"><div class="ch"><h3>Body photos</h3><span class="mu">🔒 only you see these</span></div>
+    <div class="chips">${POSES.map(([k, l]) => `<button class="chip ${pose === k ? 'on' : ''}" data-a="bpPose" data-v="${k}">${l}${bodyPics(k).length ? ` · ${bodyPics(k).length}` : ''}</button>`).join('')}</div>`;
+  if (first && last && first !== last) {
+    const days = Math.round((parseYmd(last.date) - parseYmd(first.date)) / 864e5), wd = weightNear(first.date) && weightNear(last.date) ? round(weightNear(last.date) - weightNear(first.date), 1) : null;
+    h += `<div class="bpcmp"><div class="tap" data-a="bpOpen" data-id="${esc(first.id)}"><img src="${first.img}" alt="">${cap(first)}</div><div class="tap" data-a="bpOpen" data-id="${esc(last.id)}"><img src="${last.img}" alt="">${cap(last)}</div></div>
+      <div class="note" style="text-align:center">${days} days apart${wd !== null ? ` · ${wd > 0 ? '+' : ''}${wd} lb` : ''}</div>`;
+    if (S.sample) h += `<button class="btn2 full sec" data-a="bpAi" ${S.bpBusy ? 'disabled' : ''}>${S.bpBusy ? '<span class="spin"></span> Comparing…' : '✨ What’s changed? (AI)'}</button>`;
+    if (ai && ai.firstId === first.id && ai.lastId === last.id) h += `<div class="sec"><div style="font-weight:650">${esc(ai.summary)}</div>${(ai.changes || []).map(x => `<div class="insi">${esc(x)}</div>`).join('')}${ai.tip ? `<div class="insi" style="border-left:3px solid var(--ac)">👉 ${esc(ai.tip)}</div>` : ''}</div>`;
+  } else if (last) h += `<div class="bpcmp one"><div class="tap" data-a="bpOpen" data-id="${esc(last.id)}"><img src="${last.img}" alt="">${cap(last)}</div></div><div class="note">Take another ${POSES.find(x => x[0] === pose)[1].toLowerCase()} photo in a week or two to see the before and after.</div>`;
+  else h += `<div class="empty">Take a ${POSES.find(x => x[0] === pose)[1].toLowerCase()} photo now. Same spot, same light, same time of day (morning works best) so the changes are real.</div>`;
+  h += `<label class="btn full filebtn sec">📷 Add ${POSES.find(x => x[0] === pose)[1].toLowerCase()} photo<input type="file" accept="image/*" data-file="bodypic"></label>`;
+  if (ps.length > 2) h += `<div class="bpstrip">${ps.slice().reverse().map(p => `<div class="tap" data-a="bpOpen" data-id="${esc(p.id)}"><img src="${p.img}" alt="" loading="lazy"><span>${fmtDate(p.date, {month:'short', day:'numeric'})}</span></div>`).join('')}</div>`;
+  return h + `</div>`;
+}
+async function addBodyPic(file){
+  const blob = await shrink(file, 720);
+  const img = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob); });
+  const pose = S.bpPose || 'front';
+  put('bp_' + uid36(), {kind:'bodypic', date:S.date, pose, img, ts:Date.now()});
+  toast('Photo saved 🔒');
+}
+async function bodyPicAi(){
+  const pose = S.bpPose || 'front', ps = bodyPics(pose), first = ps[0], last = ps[ps.length - 1];
+  if (!first || first === last || S.bpBusy) return;
+  S.bpBusy = true; render();
+  try {
+    const st = settings(), toBlob = async u => (await fetch(u)).blob();
+    const r = await aiApi.json(`You are a supportive, honest fitness coach looking at two ${pose} progress photos of the same person.
+Image 1 is from ${first.date}${weightNear(first.date) ? ` at ${weightNear(first.date)} lb` : ''}. Image 2 is from ${last.date}${weightNear(last.date) ? ` at ${weightNear(last.date)} lb` : ''}.
+${st.myGoals ? `Their goals in their own words: "${String(st.myGoals).slice(0, 300)}".` : ''}
+Compare only visible physique changes: belly and waistline, chest, shoulders, arms, posture, overall leanness. Be specific about what changed and where. If lighting, angle or clothing differ enough to make the comparison unreliable, say so. If you honestly can't see a change yet, say that plainly. No medical claims, no body-fat percentages, nothing about attractiveness.
+Reply with JSON only: {"summary": "one sentence", "changes": ["2-4 short observations"], "tip": "one practical tip for their next few weeks toward their goal"}`, {images:[await toBlob(first.img), await toBlob(last.img)]});
+    put('bpai_' + pose, {kind:'bpai', pose, firstId:first.id, lastId:last.id, summary:String(r.summary || '').slice(0, 300), changes:(Array.isArray(r.changes) ? r.changes : []).slice(0, 5).map(x => String(x).slice(0, 300)), tip:String(r.tip || '').slice(0, 300), ts:Date.now()});
+  } catch(e) { console.error(e); toast('Couldn’t compare right now (' + String((e && e.message) || 'error').slice(0, 60) + ').'); }
+  S.bpBusy = false; render();
+}
+MODALS.bodyPic = () => {
+  const p = S.docs.get(S.bpId); if (!p) return '';
+  return `<div class="sh"><b>${esc(fmtDate(p.date, {weekday:'short', month:'short', day:'numeric'}))} · ${esc((POSES.find(x => x[0] === p.pose) || ['', ''])[1])}</b><button class="btn" data-a="closeModal">Done</button></div>
+    <img class="preview" src="${p.img}" alt="">${weightNear(p.date) ? `<div class="note" style="text-align:center">${weightNear(p.date)} lb</div>` : ''}
+    <button class="btn2 full sec" data-a="bpDel">Delete photo</button>`;
+};
 MODALS.typeMeal = () => {
   const j = S.typeJob; if (!j) return '';
   return `<div class="sh"><b>${esc(j.meal)}</b><button class="btn2" data-a="closeModal">Cancel</button></div>
@@ -2012,6 +2066,10 @@ const A = {
   typeMeal: a => { S.typeJob = {meal:a.dataset.v, desc:'', busy:false, err:''}; openModal('typeMeal'); setTimeout(() => { const t = $('#tmDesc'); if (t) t.focus(); }, 80); },
   typeMealGo: () => typeMeal(),
   typeMealManual: () => { const j = S.typeJob; S.typeJob = null; openFood(j.meal); if (S.food) { S.food.name = (j.desc || '').trim().slice(0, 60); renderModal(); } },
+  bpPose: a => { S.bpPose = a.dataset.v; render(); },
+  bpOpen: a => { S.bpId = a.dataset.id; openModal('bodyPic'); },
+  bpAi: () => bodyPicAi(),
+  bpDel: a => { if (armDelete(a)) { del(S.bpId); S.bpId = null; closeModal(); toast('Photo deleted'); } },
   mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
   mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
   insights: () => runInsights(),
@@ -2162,6 +2220,7 @@ document.addEventListener('change', async e => {
     const meal = t.dataset.meal || guessMeal(), blob = await shrink(t.files[0], 1024); t.value = '';
     photoMeal(meal, blob);
   }
+  else if (t.dataset.file === 'bodypic' && t.files && t.files[0]) { const f = t.files[0]; t.value = ''; addBodyPic(f); }
   else if (t.dataset.file === 'pic' && t.files && t.files[0]) {
     const blob = await shrink(t.files[0], 1440); t.value = '';
     S.pic = {blob, url:URL.createObjectURL(blob), caption:'', busy:false}; openModal('pic');
