@@ -390,6 +390,13 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
 .bpcmp>div{position:relative;border-radius:12px;overflow:hidden;background:#111}.bpcmp img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}.bpcmp.one img{aspect-ratio:auto;max-height:46vh;object-fit:contain}
 .bpc{position:absolute;left:0;right:0;bottom:0;padding:16px 8px 6px;font-size:12px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7))}
 .bpstrip{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:4px}.bpstrip>div{flex:0 0 72px;text-align:center;font-size:11px;color:var(--mu)}.bpstrip img{width:72px;height:96px;object-fit:cover;border-radius:8px;display:block;margin-bottom:3px}
+.lsc{border-color:rgba(var(--lc),.45)!important;background:linear-gradient(135deg,rgba(var(--lc),.12),#fff 70%)!important}
+.lsrow{display:flex;gap:14px;align-items:center}.lsring{flex:0 0 84px;height:84px;border-radius:50%;display:grid;place-items:center}
+.lsring>div{width:66px;height:66px;border-radius:50%;background:#fff;display:flex;align-items:baseline;justify-content:center;padding-top:18px;box-sizing:border-box}
+.lsring b{font-size:26px;font-weight:850;color:rgb(var(--lc));letter-spacing:-.5px}.lsring span{font-size:11px;color:var(--mu);margin-left:1px}
+.lsr{flex:1;min-width:0}.lsk{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mu)}.lsm{font-weight:750;font-size:17px;margin:2px 0 6px}
+.lsdone{display:flex;flex-wrap:wrap;gap:3px}.lsdone span{font-size:17px;opacity:.22;filter:grayscale(1)}.lsdone span.on{opacity:1;filter:none}.lsdone span.half{opacity:.6;filter:none}
+.lsmiss{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}.lsmiss .chip{padding:6px 10px;font-size:13px}
 </style>
 </head>
 <body>
@@ -767,7 +774,7 @@ const recOf = d => ((S.docs.get('d_'+d) || {}).rec || []);
 function recoveryCard(d){
   const rs = recOf(d), pick = S.recPick && REC.find(r => r[0] === S.recPick);
   const tot = k => rs.filter(r => r.t === k).reduce((a, r) => a + num(r.m), 0);
-  return `<div class="card"><div class="ch"><h3>Recovery</h3><span class="mu">${rs.length ? REC.filter(r => tot(r[0])).map(r => `${r[1]} ${tot(r[0])} min`).join(' · ') : 'sauna · cold plunge · meditation'}</span></div>
+  return `<div class="card" id="recCard"><div class="ch"><h3>Recovery</h3><span class="mu">${rs.length ? REC.filter(r => tot(r[0])).map(r => `${r[1]} ${tot(r[0])} min`).join(' · ') : 'sauna · cold plunge · meditation'}</span></div>
     <div class="grid3">${REC.map(([k,ic,l]) => `<button class="recb ${S.recPick === k ? 'on' : ''}" data-a="recPick" data-v="${k}"><span>${ic}</span>${l}</button>`).join('')}</div>
     ${pick ? `<div class="note" style="margin-top:10px">${pick[1]} ${pick[2]} — how long?</div><div class="grid3" style="grid-template-columns:repeat(4,1fr);margin-top:6px">${pick[3].map(m => `<button class="chip" data-a="recAdd" data-v="${m}">${m} min</button>`).join('')}</div>` : ''}
     ${rs.length ? `<div class="chips" style="margin-top:10px">${rs.map((r, i) => { const R = REC.find(x => x[0] === r.t) || ['', '•', r.t]; return `<button class="chip recc" data-a="recRm" data-i="${i}">${R[1]} ${R[2]} ${num(r.m)} min ✕</button>`; }).join('')}</div>` : ''}</div>`;
@@ -863,7 +870,7 @@ VIEWS.today = () => {
   const sl = S.docs.get('s_'+d);
   const wos = workouts().filter(x => x.date === d);
   const streak = calcStreak(), water = num(day.water);
-  let h = `<div class="stats3">
+  let h = logScoreCard(d) + `<div class="stats3">
     <div class="stat"><div class="k">Streak</div><div class="v">${streak}<small> day${streak===1?'':'s'}</small></div></div>
     <div class="stat"><div class="k">Weight</div><div class="v">${lw ? round(lw.lbs,1) : '—'}<small> lb</small></div></div>
     <div class="stat"><div class="k">To goal</div><div class="v">${lw && num(st.goalWeight) ? Math.max(0, round(lw.lbs - st.goalWeight, 1)) : '—'}<small> lb</small></div></div></div>`;
@@ -1341,6 +1348,36 @@ Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": inte
 
 /* ---------- modals ---------- */
 const MODALS = {};
+/* ---------- daily logging score (out of 10) ---------- */
+function logScore(d){
+  const day = S.docs.get('d_' + d) || {}, foods = all('food').filter(f => f.date === d), w = dayWorkout(d), st = settings();
+  const dayGoals = (st.liftGoals || []).filter(g => g.unit === 'day');
+  const hasSets = !!(w && (w.exercises || []).some(e => (e.sets || []).some(x => num(x.r) > 0 || num(x.w) > 0 || num(x.m) > 0)));
+  const items = [
+    {k:'Weigh-in', ic:'⚖️', pts:1, got:S.docs.has('w_' + d) ? 1 : 0, tab:'body'},
+    {k:'Breakfast', ic:'🍳', pts:1, got:foods.some(f => f.meal === 'Breakfast') ? 1 : 0, tab:'food'},
+    {k:'Lunch', ic:'🥪', pts:1, got:foods.some(f => f.meal === 'Lunch') ? 1 : 0, tab:'food'},
+    {k:'Dinner', ic:'🍽️', pts:1, got:foods.some(f => f.meal === 'Dinner') ? 1 : 0, tab:'food'},
+    {k:'Sleep', ic:'😴', pts:1, got:(S.docs.has('s_' + d) || napMin(d) > 0) ? 1 : 0, tab:'body'},
+    {k:day.off ? 'Rest day' : 'Workout', ic:day.off ? '🛋️' : '🏋️', pts:2, got:day.off || w ? 2 : 0, tab:'lift'},
+    {k:'Sets & reps', ic:'📝', pts:1, got:day.off || hasSets ? 1 : 0, tab:'lift'},
+  ];
+  if (dayGoals.length) items.push({k:dayGoals.map(g => g.ex).join(' / '), ic:'💯', pts:1, got:dayGoals.some(g => dayReps(g.ex, d) > 0) ? 1 : 0, tab:'goalsCard'});
+  items.push({k:'Recovery', ic:'🧖', pts:1, got:recOf(d).length ? 1 : 0, tab:'recCard'});
+  const max = items.reduce((a, x) => a + x.pts, 0), got = items.reduce((a, x) => a + x.got, 0);
+  return {items, score:Math.round(got / max * 100) / 10, got, max};
+}
+function logScoreCard(d){
+  const r = logScore(d), sc = r.score, pct = sc / 10;
+  const col = sc >= 8 ? '52,199,89' : sc >= 5 ? '255,159,10' : '255,69,58';
+  const msg = sc >= 10 ? 'Perfect — everything logged 🏆' : sc >= 8 ? 'Great logging day' : sc >= 5 ? 'Halfway there — fill in the rest' : d === today() ? 'Lots left to log today' : 'Not much logged this day';
+  const miss = r.items.filter(x => x.got < x.pts);
+  return `<div class="card lsc" style="--lc:${col}"><div class="lsrow">
+    <div class="lsring" style="background:conic-gradient(rgb(var(--lc)) ${pct * 360}deg, rgba(var(--lc),.15) 0)"><div><b>${sc % 1 ? sc.toFixed(1) : sc}</b><span>/10</span></div></div>
+    <div class="lsr"><div class="lsk">${d === today() ? 'Today’s' : fmtDate(d, {month:'short', day:'numeric'})} logging score</div><div class="lsm">${msg}</div>
+    <div class="lsdone">${r.items.map(x => `<span class="${x.got >= x.pts ? 'on' : x.got ? 'half' : ''}" title="${esc(x.k)}">${x.ic}</span>`).join('')}</div></div></div>
+    ${miss.length ? `<div class="lsmiss"><span class="mu">Still to log:</span>${miss.map(x => `<button class="chip" data-a="lsGo" data-v="${x.tab}">${x.ic} ${esc(x.k)}${x.got ? ' (details)' : ''}</button>`).join('')}</div>` : ''}</div>`;
+}
 /* ---------- body photos (private: stored in your own docs, never shared with crew) ---------- */
 const POSES = [['front','Front'],['side','Side'],['back','Back']];
 function bodyPics(pose){ return all('bodypic').filter(p => !pose || p.pose === pose).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts || 0) - (b.ts || 0)); }
@@ -1805,7 +1842,7 @@ function goalsCard(){
     if (g.unit === 'day') { const steps = num(g.target) <= 20 ? [1,3,5,10] : num(g.target) <= 50 ? [5,10,15,20] : [10,20,25,30], sets = todaySets(g.ex);
       rows += goalRow('💯', `${g.ex} today`, dayReps(g.ex, today()), num(g.target), 'reps', goalEta('lift', g)) + `<div class="qr">${steps.map(n => `<button class="chip" data-a="qReps" data-i="${i}" data-v="${n}">+${n}</button>`).join('')}</div>${sets.length ? `<div class="qr qsets2"><span class="mu">Logged:</span>${sets.map((r, j) => `<button class="chip qsx" data-a="qRepsRm" data-i="${i}" data-j="${j}">${r} ✕</button>`).join('')}</div>` : ''}`; return; }
     rows += goalRow(g.unit === 'reps' ? '💪' : '🏋️', g.ex, liftBest(g.ex, g.unit), num(g.target), g.unit === 'reps' ? 'reps' : 'lb', goalEta('lift', g)); });
-  return `<div class="card"><div class="ch"><h3>My goals</h3><button class="btn2" style="padding:7px 12px" data-a="editGoals">Edit</button></div>
+  return `<div class="card" id="goalsCard"><div class="ch"><h3>My goals</h3><button class="btn2" style="padding:7px 12px" data-a="editGoals">Edit</button></div>
     ${st.myGoals ? `<div class="mygoal">🎯 ${esc(st.myGoals)}</div>` : ''}
     ${rows ? `<div class="bal">${rows}</div>` : st.myGoals ? '' : `<div class="empty">No goals yet. Tap Edit to set weight, food, weekly and strength goals.</div>`}</div>`;
 }
@@ -1993,6 +2030,7 @@ MODALS.me = () => {
 
 /* ---------- actions ---------- */
 const A = {
+  lsGo: a => { const v = a.dataset.v; if (v.endsWith('Card')) { const el = document.getElementById(v); if (el) el.scrollIntoView({behavior:'smooth', block:'start'}); return; } S.tab = v; render(); window.scrollTo(0,0); },
   tab: a => { S.tab = a.dataset.v; render(); window.scrollTo(0,0); },
   day: a => { const n = addDays(S.date, +a.dataset.v); if (n <= today()) { S.date = n; render(); } },
   goToday: () => { S.date = today(); render(); },
