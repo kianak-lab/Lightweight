@@ -395,7 +395,7 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
 .lsring>div{width:66px;height:66px;border-radius:50%;background:#fff;display:flex;align-items:baseline;justify-content:center;padding-top:18px;box-sizing:border-box}
 .lsring b{font-size:26px;font-weight:850;color:rgb(var(--lc));letter-spacing:-.5px}.lsring span{font-size:11px;color:var(--mu);margin-left:1px}
 .lsr{flex:1;min-width:0}.lsk{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mu)}.lsm{font-weight:750;font-size:17px;margin:2px 0 6px}
-.lsdone{display:flex;flex-wrap:wrap;gap:3px}.lsdone span{font-size:17px;opacity:.22;filter:grayscale(1)}.lsdone span.on{opacity:1;filter:none}.lsdone span.half{opacity:.6;filter:none}
+.lsdone{display:flex;flex-wrap:wrap;gap:3px}.lsdone span{font-size:17px;opacity:.22;filter:grayscale(1)}.lsdone span.on{opacity:1;filter:none}.lsdone span.half{opacity:.6;filter:none}.lsdone span.hide{display:none}
 .lsmiss{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}.lsmiss .chip{padding:6px 10px;font-size:13px}
 .bpseg{display:flex;gap:3px;background:#eef0f4;border-radius:12px;padding:3px;margin-top:12px}.bpseg button{flex:1;background:none;border:0;color:#5b6472;font-size:12.5px;font-weight:700;padding:9px 2px;border-radius:9px;white-space:nowrap}.bpseg button.on{background:#fff;color:#12151a;box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .bpdue{background:rgba(255,159,10,.14);border:1.5px solid rgba(255,159,10,.45);color:#8a5200;border-radius:12px;padding:9px 12px;font-weight:650;margin-bottom:10px}
@@ -1381,19 +1381,19 @@ function logScore(d){
     {k:'Sets & reps', ic:'📝', pts:1, got:day.off || hasSets ? 1 : 0, tab:'lift'},
   ];
   if (dayGoals.length) items.push({k:dayGoals.map(g => g.ex).join(' / '), ic:'💯', pts:1, got:dayGoals.some(g => dayReps(g.ex, d) > 0) ? 1 : 0, tab:'goalsCard'});
-  items.push({k:'Recovery', ic:'🧖', pts:1, got:recOf(d).length ? 1 : 0, tab:'recCard'});
-  const max = items.reduce((a, x) => a + x.pts, 0), got = items.reduce((a, x) => a + x.got, 0);
+  items.push({k:'Recovery (bonus)', ic:'🧖', pts:0, bonus:true, got:recOf(d).length ? 1 : 0, tab:'recCard'});
+  const req = items.filter(x => !x.bonus), max = req.reduce((a, x) => a + x.pts, 0), got = req.reduce((a, x) => a + x.got, 0);
   return {items, score:Math.round(got / max * 100) / 10, got, max};
 }
 function logScoreCard(d){
   const r = logScore(d), sc = r.score, pct = sc / 10;
   const col = sc >= 8 ? '52,199,89' : sc >= 5 ? '255,159,10' : '255,69,58';
   const msg = sc >= 10 ? 'Perfect — everything logged 🏆' : sc >= 8 ? 'Great logging day' : sc >= 5 ? 'Halfway there — fill in the rest' : d === today() ? 'Lots left to log today' : 'Not much logged this day';
-  const miss = r.items.filter(x => x.got < x.pts), due = d === today() && photoDue();
+  const miss = r.items.filter(x => !x.bonus && x.got < x.pts), due = d === today() && photoDue();
   return `<div class="card lsc" style="--lc:${col}"><div class="lsrow">
     <div class="lsring" style="background:conic-gradient(rgb(var(--lc)) ${pct * 360}deg, rgba(var(--lc),.15) 0)"><div><b>${sc % 1 ? sc.toFixed(1) : sc}</b><span>/10</span></div></div>
     <div class="lsr"><div class="lsk">${d === today() ? 'Today’s' : fmtDate(d, {month:'short', day:'numeric'})} logging score</div><div class="lsm">${msg}</div>
-    <div class="lsdone">${r.items.map(x => `<span class="${x.got >= x.pts ? 'on' : x.got ? 'half' : ''}" title="${esc(x.k)}">${x.ic}</span>`).join('')}</div></div></div>
+    <div class="lsdone">${r.items.map(x => `<span class="${x.bonus ? (x.got ? 'on' : 'hide') : x.got >= x.pts ? 'on' : x.got ? 'half' : ''}" title="${esc(x.k)}">${x.ic}</span>`).join('')}</div></div></div>
     ${miss.length || due ? `<div class="lsmiss"><span class="mu">${miss.length ? 'Still to log:' : 'This week:'}</span>${miss.map(x => `<button class="chip" data-a="lsGo" data-v="${x.tab}">${x.ic} ${esc(x.k)}${x.got ? ' (details)' : ''}</button>`).join('')}${due ? `<button class="chip" data-a="lsGo" data-v="bpCard">📸 Weekly photo</button>` : ''}</div>` : ''}</div>`;
 }
 /* ---------- body photos (private: stored in your own docs, never shared with crew unless you post one) ---------- */
