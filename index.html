@@ -600,9 +600,9 @@ const aiApi = {
     const res = await fetch('https://thefloorplanguy.ca/api/lw-ai', {method:'POST', headers:{'content-type':'application/json', authorization:'Bearer ' + token}, body:JSON.stringify(body)});
     let data = null; try { data = await res.json(); } catch(_) {}
     if (!res.ok) { const e = new Error((data && data.error) || ('AI error ' + res.status)); e.code = res.status === 429 ? 'rate_limited' : 'ai_error'; console.error(e); throw e; }
-    const t = String((data && data.text) || ''), m = t.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('no json');
-    return JSON.parse(m[0]);
+    const t = String((data && data.text) || '').replace(/```(?:json)?/g, ''), a = t.indexOf('{'), b = t.lastIndexOf('}');
+    if (a < 0 || b <= a) { console.error('AI reply', t); throw new Error('AI reply wasn’t readable'); }
+    try { return JSON.parse(t.slice(a, b + 1)); } catch(_) { console.error('AI reply', t); throw new Error('AI reply was cut off'); }
   },
   async limits(){ return {images:true}; }
 };
@@ -1223,8 +1223,8 @@ async function runInsights(){
   const prompt = `You are the coach inside a personal fitness tracking app. Below is everything this person has logged (JSON). Analyze all of it together: weight trend against their goal, calories and protein against targets, what they actually eat, sleep (use totalSleepHrs, which includes naps), how often they train and which body parts get trained or neglected, rest days, recovery (sauna, cold plunge, meditation), progress on their per-week and strength goals, and their daily scorecards.
 The app only tracks: weight, food (calories and macros), sleep and naps, workouts (body parts, exercises, sets/reps/weight), rest days, recovery sessions and goals. Never mention or ask them to log water, steps, energy or mood, because the app has no place for them. Workouts logged as body parts only, without sets, still count as a workout done. Anything they did not log counts as NOT DONE: a day with no workout and no rest day marked is a missed gym day, no weigh-in is a missed weigh-in, no sleep entry is a missed sleep log, a meal slot with nothing logged is a missed log. Either they didn't have time or didn't make the effort; say so plainly and count those misses in your numbers (for example "logged food on 4 of 14 days"). Still give the full analysis of everything that was logged. A sleep number that looks impossible is probably a logging mistake; mention it at most once, briefly.
 Write for a regular person in plain, direct language. Be specific: quote their real numbers and dates. Look for links between areas (for example sleep vs energy, protein vs target, training frequency vs body parts missed). Be encouraging but honest. If there is little data, say what you can and say which things to log to get better insights. Never recommend extreme dieting, very low calories, or rapid weight loss; keep advice moderate and sensible, and do not give medical advice.
-Data: ${JSON.stringify(insightData())}
-Reply with JSON only: {"headline": "one sentence summing up how they are doing", "wins": ["2-4 short things going well, with numbers"], "watch": ["2-4 short things to watch or fix, with numbers"], "next": ["3 concrete actions for the coming week"]}`;
+Reply with JSON only, no other text, exactly this shape: {"headline": "one sentence summing up how they are doing", "wins": ["2-4 short things going well, with numbers"], "watch": ["2-4 short things to watch, fix or that were missed, with numbers"], "next": ["3 concrete actions for the coming week"]}. Keep every item under 40 words.
+Data: ${JSON.stringify(insightData())}`;
   try {
     const r = await S.sample.json(prompt, {modelTier:'default', cache:false});
     if (!r || typeof r !== 'object') throw new Error('bad');
@@ -1233,7 +1233,7 @@ Reply with JSON only: {"headline": "one sentence summing up how they are doing",
   } catch(e) {
     if (e && e.code === 'not_granted') { S.sample = null; toast('AI isn’t available here.'); }
     else if (e && e.code === 'rate_limited') toast('Too many requests — wait a minute and try again.');
-    else toast('Couldn’t analyze right now. Try again.');
+    else toast('Couldn’t analyze right now (' + String((e && e.message) || 'error').slice(0, 80) + '). Try again.');
   }
   S.insBusy = false; render();
 }
