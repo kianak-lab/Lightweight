@@ -415,6 +415,9 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
 .cam video,.cam .ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cam .ghost{opacity:.33;pointer-events:none}.cam .mir{transform:scaleX(-1)}
 #camCount{position:absolute;inset:0;display:grid;place-items:center;font-size:120px;font-weight:850;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.6);pointer-events:none}.camwait{position:absolute;inset:0;display:grid;place-items:center}
 .camrow{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.plandays{display:grid;grid-template-columns:1fr 1fr;gap:8px}.planday{text-align:left;background:#f4f6f9;border:1.5px solid #e3e7ee;border-radius:12px;padding:10px 11px;color:inherit;font:inherit}
+.planday b{display:block;font-size:15px;margin-bottom:3px}.planday span{display:block;font-size:12px;color:var(--mu);line-height:1.35}.planday.today{border-color:var(--ac);background:rgba(198,244,50,.18)}
+.plantpl{border:1.5px solid #e3e7ee;border-radius:14px;padding:12px;margin-top:8px}.plantpl .sm{font-size:13px;color:var(--mu)}
 </style>
 </head>
 <body>
@@ -955,7 +958,8 @@ VIEWS.lift = () => {
   h += wos.length ? `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${(x.exercises||[]).map(e => esc(e.name)).join(', ') || 'No exercises yet'}</div><div class="sm">${woLine(x)}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>` : '<div class="empty">No workout logged for this day.</div>';
   h += `<div class="grid2" style="margin-top:10px"><button class="btn" data-a="newWo">${wos.length ? 'Continue workout' : 'New workout'}</button>${last ? `<button class="btn2" data-a="repeatWo">Repeat last</button>` : '<span></span>'}</div>`;
   if (last) h += `<div class="note">Last: ${esc(last.name || 'Workout')} on ${fmtDate(last.date)}</div>`;
-  h += `</div>`;
+  h += `<button class="lnk" style="margin-top:8px" data-a="plans">📋 ${myPlans().length ? 'Workout plans' : 'Try a workout plan'}</button>`;
+  h += `</div>` + planCard();
 
   h += `<div class="card"><div class="ch"><h3>Personal records</h3><span class="mu">Est. 1-rep max</span></div><div class="pr"><span class="h">Lift</span><span class="h r">Heaviest</span><span class="h r">Est. max</span>`;
   const logged = [...new Set(all_.flatMap(w => (w.exercises||[]).map(e => e.name)).filter(n => n && !CARDIO.has(n)))];
@@ -1366,6 +1370,54 @@ Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": inte
 
 /* ---------- modals ---------- */
 const MODALS = {};
+/* ---------- workout plans (optional; each person adds their own) ---------- */
+const PLAN_TEMPLATES = [
+  {tid:'eight', name:'8-exercise split', by:'@soberfitness', daily:'10 min of leg raises every day · pull-ups toward your daily goal', days:[
+    {lbl:'Mon', ex:[['Squat',4,5],['Bench Press',4,5],['Pull-up',4,'']]},
+    {lbl:'Tue', ex:[['Deadlift',3,5],['Overhead Press',4,8],['Dips',3,''],['Barbell Row',4,8]]},
+    {lbl:'Thu', ex:[['Squat',4,5],['Bench Press',4,5],['Pull-up',4,'']]},
+    {lbl:'Fri', ex:[['Romanian Deadlift',3,8],['Overhead Press',4,8],['Dips',3,''],['Barbell Row',4,8]]},
+  ]},
+];
+function myPlans(){ return settings().plans || []; }
+function lastWeightFor(name){ const ws = workouts(); for (let i = ws.length - 1; i >= 0; i--) { const e = (ws[i].exercises || []).find(x => x.name === name); if (e) { const s = (e.sets || []).filter(x => num(x.w) > 0); if (s.length) return s[s.length - 1].w; } } return ''; }
+function planCard(){
+  const ps = myPlans(); if (!ps.length) return '';
+  const wd = parseYmd(S.date).toLocaleDateString('en-US', {weekday:'short'});
+  return ps.map((p, pi) => `<div class="card"><div class="ch"><h3>📋 ${esc(p.name)}</h3><button class="btn2" style="padding:6px 11px" data-a="planMenu" data-v="${pi}">•••</button></div>
+    <div class="plandays">${p.days.map((d, di) => `<button class="planday ${d.lbl === wd ? 'today' : ''}" data-a="planGo" data-p="${pi}" data-d="${di}"><b>${esc(d.lbl)}</b><span>${d.ex.map(e => esc(e[0])).join(' · ')}</span></button>`).join('')}</div>
+    ${p.daily ? `<div class="note">Every day: ${esc(p.daily.replace(/ every day/, ''))}</div>` : ''}
+    <div class="note">Tap a day to load it into ${S.date === today() ? 'today’s' : 'this day’s'} workout. You can still change anything.</div></div>`).join('');
+}
+function planGo(pi, di){
+  const p = myPlans()[pi], day = p && p.days[di]; if (!day) return;
+  const exs = day.ex.map(([name, n, r]) => { const w = lastWeightFor(name); return {name, sets:Array.from({length:n}, () => ({w, r:r === '' ? '' : r}))}; });
+  const parts = [...new Set(exs.flatMap(e => EX_PARTS[e.name] || []))];
+  const ex = dayWorkout(S.date);
+  if (ex) {
+    const w = JSON.parse(JSON.stringify(ex)), have = new Set((w.exercises || []).map(e => (e.name || '').toLowerCase()));
+    w.exercises = [...(w.exercises || []), ...exs.filter(e => !have.has(e.name.toLowerCase()))];
+    w.parts = [...new Set([...(w.parts || []), ...parts])]; if (!w.name || w.name === autoName(ex.parts || [])) w.name = autoName(w.parts);
+    put(ex.id, w); return openWorkout(ex.id);
+  }
+  S.woId = 'wo_' + uid36();
+  S.wo = {kind:'workout', date:S.date, ts:Date.now(), name:autoName(parts), exercises:exs, notes:'', parts, start:'', end:'', desc:''};
+  saveWo(0); openModal('workout');
+}
+MODALS.plans = () => {
+  const have = new Set(myPlans().map(p => p.tid));
+  return `<div class="sh"><b>Workout plans</b><button class="btn2" data-a="closeModal">Close</button></div>
+    <div class="note" style="margin-bottom:10px">Optional. A plan just adds one-tap days to your Workout tab. Picking body parts and exercises yourself still works the same.</div>
+    ${PLAN_TEMPLATES.map(t => `<div class="plantpl"><div class="ch" style="margin:0"><div><b>${esc(t.name)}</b><div class="sm">${esc(t.by)} · ${t.days.length} days a week</div></div>
+      ${have.has(t.tid) ? '<span class="pill">Added</span>' : `<button class="btn" style="padding:8px 14px" data-a="planAdd" data-v="${t.tid}">Add</button>`}</div>
+      ${t.days.map(d => `<div class="sm" style="margin-top:6px"><b>${esc(d.lbl)}</b> · ${d.ex.map(e => `${esc(e[0])} ${e[1]}×${e[2] === '' ? 'max' : e[2]}`).join(' · ')}</div>`).join('')}
+      ${t.daily ? `<div class="sm" style="margin-top:6px"><b>Daily</b> · ${esc(t.daily)}</div>` : ''}</div>`).join('')}`;
+};
+MODALS.planMenu = () => {
+  const p = myPlans()[S.planI]; if (!p) return '';
+  return `<div class="sh"><b>${esc(p.name)}</b><button class="btn2" data-a="closeModal">Close</button></div>
+    <button class="btn2 full" data-a="planRm">Remove this plan</button><div class="note">Removing it only hides the day buttons. Workouts you already logged stay.</div>`;
+};
 /* ---------- daily logging score (out of 10) ---------- */
 function logScore(d){
   const day = S.docs.get('d_' + d) || {}, foods = all('food').filter(f => f.date === d), w = dayWorkout(d), st = settings();
@@ -2276,6 +2328,11 @@ const A = {
   camTimer: () => { S.cam.timer = S.cam.timer === 0 ? 5 : S.cam.timer === 5 ? 10 : 0; renderModal(); },
   camGo: () => camGo(),
   bpDel: a => { if (armDelete(a)) { del(S.bpId); S.bpId = null; closeModal(); toast('Photo deleted'); } },
+  plans: () => openModal('plans'),
+  planAdd: a => { const t = PLAN_TEMPLATES.find(x => x.tid === a.dataset.v); if (!t) return; const st = settings(); if ((st.plans || []).some(p => p.tid === t.tid)) return; put('settings', {...st, kind:'settings', plans:[...(st.plans || []), JSON.parse(JSON.stringify(t))]}); closeModal(); toast(`Added ${t.name}`); },
+  planGo: a => planGo(+a.dataset.p, +a.dataset.d),
+  planMenu: a => { S.planI = +a.dataset.v; openModal('planMenu'); },
+  planRm: a => { if (!armDelete(a)) return; const st = settings(); put('settings', {...st, kind:'settings', plans:(st.plans || []).filter((_, i) => i !== S.planI)}); closeModal(); toast('Plan removed'); },
   mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
   mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
   insights: () => runInsights(),
