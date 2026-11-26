@@ -418,6 +418,7 @@ main > .card:not(.sb):not(.ai):nth-of-type(5n+5){--t:#d9541f}
 .plandays{display:grid;grid-template-columns:1fr 1fr;gap:8px}.planday{text-align:left;background:#f4f6f9;border:1.5px solid #e3e7ee;border-radius:12px;padding:10px 11px;color:inherit;font:inherit}
 .planday b{display:block;font-size:15px;margin-bottom:3px}.planday span{display:block;font-size:12px;color:var(--mu);line-height:1.35}.planday.today{border-color:var(--ac);background:rgba(198,244,50,.18)}
 .plantpl{border:1.5px solid #e3e7ee;border-radius:14px;padding:12px;margin-top:8px}.plantpl .sm{font-size:13px;color:var(--mu)}
+.mskip{opacity:.75}.skiprow{display:flex;align-items:center;gap:10px;color:var(--mu);font-weight:600;margin-top:6px}
 </style>
 </head>
 <body>
@@ -912,13 +913,16 @@ VIEWS.today = () => {
   h += `<div class="card tap" data-a="tab" data-v="body"><div class="ch"><h3>Sleep</h3>${sl ? `<span class="mu">${'★'.repeat(num(sl.quality))}${'☆'.repeat(5 - num(sl.quality))}</span>` : ''}</div>
     ${tot ? `<div class="big">${round(tot,1)}<small> hrs${sl ? ` · ${esc(sl.bed)} → ${esc(sl.wake)}` : ''}${nm ? ` · incl. ${minTxt(nm)} nap${napsOf(d).length > 1 ? 's' : ''}` : ''}</small></div>${bar(tot, st.sleepTarget, 'var(--pur)')}` : `<div class="empty">Tap to log last night’s sleep or a nap.</div>`}</div>`; }
 
-  const off = !!(S.docs.get('d_'+d) || {}).off && !wos.length;
-  h += `<div class="card"><div class="ch"><h3>Workout</h3>${wos.length ? '<span class="pill">Done</span>' : off ? '<span class="pill" style="background:#2a2440;color:#b39dff">Rest day</span>' : ''}</div>`;
+  const off = !!(S.docs.get('d_'+d) || {}).off && !wos.length, sick = isSick(d) && !wos.length;
+  h += `<div class="card"><div class="ch"><h3>Workout</h3>${wos.length ? '<span class="pill">Done</span>' : sick ? '<span class="pill" style="background:#3a2a10;color:#ffc46b">Recovering</span>' : off ? '<span class="pill" style="background:#2a2440;color:#b39dff">Rest day</span>' : ''}</div>`;
+  if (sick) h += `<div class="restmsg">🤒 Recovering — take it easy. Workout, push-ups and recovery count as done today.</div><div class="grid2" style="margin-top:8px"><button class="btn2" data-a="newWo">Log a workout anyway</button><button class="btn2" data-a="sick">Recovery settings</button></div></div>`;
+  else {
   if (off) h += `<div class="restmsg">😴 Rest day — recovery counts too.</div>`;
   if (wos.length) h += `<div class="list">${wos.map(x => { const s = woStats(x); return `<div class="it tap" data-a="openWo" data-id="${esc(x.id)}"><div class="main"><div class="nm">${esc(x.name || 'Workout')}</div><div class="sm">${woLine(x) || 'No sets yet'}</div>${partTags(x)}</div><span class="mu">›</span></div>`; }).join('')}</div>`;
   h += wos.length ? `<button class="btn full" style="margin-top:8px" data-a="newWo">Continue workout</button></div>`
     : off ? `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Work out anyway</button><button class="btn2" data-a="offDay">Undo rest day</button></div></div>`
-    : `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Start workout</button><button class="btn2" data-a="offDay">😴 Rest day</button></div></div>`;
+    : `<div class="grid2" style="margin-top:8px"><button class="btn" data-a="newWo">Start workout</button><button class="btn2" data-a="offDay">😴 Rest day</button></div><button class="lnk" style="margin-top:6px" data-a="sick">🤒 Sick, injured or had surgery?</button></div>`;
+  }
   h += recoveryCard(d);
   h += scorecard(d);
   h += calendarCard(d.slice(0, 7), false);
@@ -939,8 +943,10 @@ VIEWS.food = () => {
     <div class="plates">${shots.map(f => `<div class="plate tap" data-a="editFood" data-id="${esc(f.id)}"><img src="${blobUrl(f.photo)}" alt="" loading="lazy"><div class="pc"><b>${esc(f.meal || '')}</b>${fmt(num(f.cal))} cal</div></div>`).join('')}</div></div>`;
   for (const m of MEALS) {
     const items = foods.filter(f => (f.meal || 'Snacks') === m), t = sumFood(items);
-    h += `<div class="card"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><button class="btn2" data-a="typeMeal" data-v="${m}">✏️ Type</button><label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${m}"></label></div></div>`;
+    const skipped = !items.length && skipsOf(d).includes(m);
+    h += `<div class="card ${skipped ? 'mskip' : ''}"><div class="ch"><h3>${m}</h3><div class="row"><span class="mu">${items.length ? fmt(t.cal) + ' cal' : ''}</span><button class="btn2" data-a="typeMeal" data-v="${m}">✏️ Type</button><label class="btn2 filebtn">📷 Photo<input type="file" accept="image/*" data-file="mealpic" data-meal="${m}"></label></div></div>`;
     h += items.length ? `<div class="list">${items.map(f => `<div class="it">${f.photo ? `<img class="fthumb" src="${blobUrl(f.photo)}" alt="" loading="lazy">` : ''}<div class="main tap" data-a="editFood" data-id="${esc(f.id)}"><div class="nm">${esc(f.name)}</div><div class="sm">${fmt(num(f.cal))} cal · P ${fmt(num(f.p))} · C ${fmt(num(f.c))} · F ${fmt(num(f.f))}</div></div><button class="x" data-a="delDoc" data-id="${esc(f.id)}">Remove</button></div>`).join('')}</div>` : '';
+    if (!items.length && m !== 'Snacks') h += skipped ? `<div class="skiprow">🚫 Skipped — didn’t eat ${m.toLowerCase()} <button class="lnk" data-a="skipMeal" data-v="${m}">Undo</button></div>` : `<button class="lnk" style="margin-top:4px" data-a="skipMeal" data-v="${m}">🚫 I didn’t eat ${m.toLowerCase()}</button>`;
     h += `</div>`;
   }
   // photo diary: every day with meal photos, photos overlapping
@@ -1244,7 +1250,7 @@ function insightData(){
     weighIns:ws.filter(w => w.date >= addDays(t, -60)).map(w => [w.date, num(w.lbs), w.waist || null]),
     weightChangePerWeekLb: rate == null ? null : round(rate, 2),
     last14Days:days.map(d => { const f = sumFood(foods.filter(x => x.date === d)), s = S.docs.get('s_'+d), c = S.docs.get('d_'+d) || {};
-      const sc = dayScore(d); return {date:d, cal:Math.round(f.cal) || null, protein:Math.round(f.p) || null, carbs:Math.round(f.c) || null, fat:Math.round(f.f) || null, nightSleepHrs:s ? round(nightHrs(d), 2) : null, napMinutes:napMin(d) || null, totalSleepHrs:(s || napMin(d)) ? round(sleepTotal(d), 2) : null, sleepQuality:s && s.quality ? s.quality : null, restDay:!!c.off, dailyRepGoals:(st.liftGoals || []).filter(g => g.unit === 'day').map(g => `${g.ex} ${dayReps(g.ex, d)}/${g.target}`), scorecard:`${sc.done}/${sc.total}`}; }),
+      const sc = dayScore(d); return {date:d, cal:Math.round(f.cal) || null, protein:Math.round(f.p) || null, carbs:Math.round(f.c) || null, fat:Math.round(f.f) || null, nightSleepHrs:s ? round(nightHrs(d), 2) : null, napMinutes:napMin(d) || null, totalSleepHrs:(s || napMin(d)) ? round(sleepTotal(d), 2) : null, sleepQuality:s && s.quality ? s.quality : null, restDay:!!c.off, recovering:!!c.sick || undefined, skippedMeals:(c.skip || []).length ? c.skip : undefined, dailyRepGoals:(st.liftGoals || []).filter(g => g.unit === 'day').map(g => `${g.ex} ${dayReps(g.ex, d)}/${g.target}`), scorecard:`${sc.done}/${sc.total}`}; }),
     foodsLast7Days:foods.filter(f => f.date >= addDays(t, -6)).slice(-60).map(f => `${f.date.slice(5)} ${f.meal || ''}: ${String(f.name).slice(0,40)} (${Math.round(num(f.cal))} cal, ${Math.round(num(f.p))}g protein)`),
     workoutsLast30Days:workouts().filter(w => w.date >= d30).map(w => ({date:w.date, name:w.name || '', bodyParts:w.parts || [], minutes:woMins(w), exercises:(w.exercises||[]).map(e => `${e.name}: ${setsStr((e.sets||[]).filter(s => num(s.r) > 0)) || 'no sets'}`), notes:(w.notes || '').slice(0,150)})),
     bestLiftsEst1RM:Object.fromEntries([...new Set(workouts().flatMap(w => (w.exercises||[]).map(e => e.name)))].filter(n => n && !CARDIO.has(n)).map(n => [n, bestFor(n).best]).filter(x => x[1]).map(([n, b]) => [n, Math.round(b.e)])),
@@ -1256,7 +1262,7 @@ async function runInsights(){
   if (!S.sample || S.insBusy) return;
   S.insBusy = true; render();
   const prompt = `You are the coach inside a personal fitness tracking app. Below is everything this person has logged (JSON). Analyze all of it together: weight trend against their goal, calories and protein against targets, what they actually eat, sleep (use totalSleepHrs, which includes naps), how well everything lines up with the goals they wrote in their own words (goals.inTheirOwnWords — make this the main focus of your advice), how often they train and which body parts get trained or neglected, rest days, recovery (sauna, cold plunge, meditation), progress on their per-week and strength goals, and their daily scorecards.
-The app only tracks: weight, food (calories and macros), sleep and naps, workouts (body parts, exercises, sets/reps/weight), rest days, recovery sessions and goals. Never mention or ask them to log water, steps, energy or mood, because the app has no place for them. Workouts logged as body parts only, without sets, still count as a workout done. Anything they did not log counts as NOT DONE: a day with no workout and no rest day marked is a missed gym day, no weigh-in is a missed weigh-in, no sleep entry is a missed sleep log, a meal slot with nothing logged is a missed log. Either they didn't have time or didn't make the effort; say so plainly and count those misses in your numbers (for example "logged food on 4 of 14 days"). Still give the full analysis of everything that was logged. A sleep number that looks impossible is probably a logging mistake; mention it at most once, briefly.
+The app only tracks: weight, food (calories and macros), sleep and naps, workouts (body parts, exercises, sets/reps/weight), rest days, recovery sessions and goals. Never mention or ask them to log water, steps, energy or mood, because the app has no place for them. Days marked recovering (illness, surgery or injury) are NOT misses: don't count missed workouts, rep goals or recovery sessions on those days, and be supportive about resting. Meals in skippedMeals were deliberately not eaten, not missed logs. Workouts logged as body parts only, without sets, still count as a workout done. Anything they did not log counts as NOT DONE: a day with no workout and no rest day marked is a missed gym day, no weigh-in is a missed weigh-in, no sleep entry is a missed sleep log, a meal slot with nothing logged is a missed log. Either they didn't have time or didn't make the effort; say so plainly and count those misses in your numbers (for example "logged food on 4 of 14 days"). Still give the full analysis of everything that was logged. A sleep number that looks impossible is probably a logging mistake; mention it at most once, briefly.
 Write for a regular person in plain, direct language. Be specific: quote their real numbers and dates. Look for links between areas (for example sleep vs energy, protein vs target, training frequency vs body parts missed). Be encouraging but honest. If there is little data, say what you can and say which things to log to get better insights. Never recommend extreme dieting, very low calories, or rapid weight loss; keep advice moderate and sensible, and do not give medical advice.
 Reply with JSON only, no other text, exactly this shape: {"headline": "one sentence summing up how they are doing", "wins": ["2-4 short things going well, with numbers"], "watch": ["2-4 short things to watch, fix or that were missed, with numbers"], "next": ["3 concrete actions for the coming week"]}. Keep every item under 40 words.
 Data: ${JSON.stringify(insightData())}`;
@@ -1370,6 +1376,16 @@ Reply with JSON only: {"name": "short meal name, max 40 characters", "cal": inte
 
 /* ---------- modals ---------- */
 const MODALS = {};
+/* ---------- skipped meals & recovering (sick/injured) days ---------- */
+const skipsOf = d => (S.docs.get('d_' + d) || {}).skip || [];
+const isSick = d => !!(S.docs.get('d_' + d) || {}).sick;
+MODALS.sick = () => {
+  const on = isSick(S.date);
+  return `<div class="sh"><b>🤒 Recovering</b><button class="btn2" data-a="closeModal">Close</button></div>
+    <div class="note" style="margin-bottom:10px">For surgery, sickness or an injury. Recovering days count as done for the workout, sets, push-up goals and recovery, so your score and streak don’t drop. Weigh-ins, meals and sleep still count, so keep logging what you can.</div>
+    ${on ? `<button class="btn2 full" data-a="sickOff">I’m back — stop recovering from ${S.date === today() ? 'today' : fmtDate(S.date, {month:'short', day:'numeric'})}</button>` : `<label class="f">How many days, starting ${S.date === today() ? 'today' : fmtDate(S.date, {month:'short', day:'numeric'})}?</label>
+    <div class="chips">${[1,2,3,4,5,7,10,14].map(n => `<button class="chip" data-a="sickSet" data-v="${n}">${n} day${n > 1 ? 's' : ''}</button>`).join('')}</div>`}`;
+};
 /* ---------- workout plans (optional; each person adds their own) ---------- */
 const PLAN_TEMPLATES = [
   {tid:'eight', name:'8-exercise split', by:'@soberfitness', daily:'10 min of leg raises every day · pull-ups toward your daily goal', days:[
@@ -1423,18 +1439,19 @@ function logScore(d){
   const day = S.docs.get('d_' + d) || {}, foods = all('food').filter(f => f.date === d), w = dayWorkout(d), st = settings();
   const dayGoals = (st.liftGoals || []).filter(g => g.unit === 'day');
   const hasSets = !!(w && (w.exercises || []).some(e => (e.sets || []).some(x => num(x.r) > 0 || num(x.w) > 0 || num(x.m) > 0)));
+  const sk = day.skip || [], ate = m => foods.some(f => f.meal === m) || sk.includes(m) ? 1 : 0, sick = !!day.sick, rest = day.off || sick;
   const items = [
     {k:'Weigh-in', ic:'⚖️', pts:1, got:S.docs.has('w_' + d) ? 1 : 0, tab:'body'},
-    {k:'Breakfast', ic:'🍳', pts:1, got:foods.some(f => f.meal === 'Breakfast') ? 1 : 0, tab:'food'},
-    {k:'Lunch', ic:'🥪', pts:1, got:foods.some(f => f.meal === 'Lunch') ? 1 : 0, tab:'food'},
-    {k:'Dinner', ic:'🍽️', pts:1, got:foods.some(f => f.meal === 'Dinner') ? 1 : 0, tab:'food'},
+    {k:'Breakfast', ic:'🍳', pts:1, got:ate('Breakfast'), tab:'food'},
+    {k:'Lunch', ic:'🥪', pts:1, got:ate('Lunch'), tab:'food'},
+    {k:'Dinner', ic:'🍽️', pts:1, got:ate('Dinner'), tab:'food'},
     {k:'Sleep', ic:'😴', pts:1, got:(S.docs.has('s_' + d) || napMin(d) > 0) ? 1 : 0, tab:'body'},
-    {k:day.off ? 'Rest day' : 'Workout', ic:day.off ? '🛋️' : '🏋️', pts:2, got:day.off || w ? 2 : 0, tab:'lift'},
-    {k:'Sets & reps', ic:'📝', pts:1, got:day.off || hasSets ? 1 : 0, tab:'lift'},
+    {k:sick ? 'Recovering' : day.off ? 'Rest day' : 'Workout', ic:sick ? '🤒' : day.off ? '🛋️' : '🏋️', pts:2, got:rest || w ? 2 : 0, tab:'lift'},
+    {k:'Sets & reps', ic:'📝', pts:1, got:rest || hasSets ? 1 : 0, tab:'lift'},
   ];
-  if (dayGoals.length) items.push({k:dayGoals.map(g => g.ex).join(' / '), ic:'💯', pts:1, got:dayGoals.some(g => dayReps(g.ex, d) > 0) ? 1 : 0, tab:'goalsCard'});
+  if (dayGoals.length) items.push({k:dayGoals.map(g => g.ex).join(' / '), ic:'💯', pts:1, got:sick || dayGoals.some(g => dayReps(g.ex, d) > 0) ? 1 : 0, tab:'goalsCard'});
   const recTypes = new Set(recOf(d).map(x => x.t)).size;
-  items.push({k:'Recovery', ic:'🧖', pts:1, got:recTypes ? 1 : 0, tab:'recCard'});
+  items.push({k:'Recovery', ic:'🧖', pts:1, got:sick || recTypes ? 1 : 0, tab:'recCard'});
   const req = items.filter(x => !x.bonus), max = req.reduce((a, x) => a + x.pts, 0), got = req.reduce((a, x) => a + x.got, 0);
   return {items, score:Math.round(got / max * 100) / 10, got, max, bonus:Math.max(0, recTypes - 1)};
 }
@@ -2017,13 +2034,13 @@ function goalRow(ic, label, cur, target, unit, eta){
 }
 function dayScore(d){
   const st = settings(), foods = all('food').filter(f => f.date === d), tot = sumFood(foods), items = [];
-  const ws = workouts().filter(w => w.date === d), off = !!(S.docs.get('d_'+d) || {}).off;
+  const ws = workouts().filter(w => w.date === d), sick = isSick(d), off = !!(S.docs.get('d_'+d) || {}).off || sick;
   items.push({ic:'⚖️', l:'Weighed in', ok:!!S.docs.get('w_'+d), v:S.docs.get('w_'+d) ? `${round(num(S.docs.get('w_'+d).lbs),1)} lb` : '—'});
   items.push({ic:'🍽️', l:'Calories on target', ok:tot.cal > 0 && tot.cal <= st.calTarget * 1.05, v:tot.cal ? `${fmt(tot.cal)} / ${fmt(st.calTarget)}` : 'nothing logged', warn:tot.cal > st.calTarget * 1.05});
   items.push({ic:'🥩', l:'Protein goal', ok:tot.p >= st.proteinTarget, v:`${fmt(tot.p)} / ${fmt(st.proteinTarget)} g`});
-  items.push({ic:'🏋️', l:off ? 'Rest day' : 'Workout', ok:ws.length > 0 || off, v:ws.length ? (autoName([...new Set(ws.flatMap(w => w.parts || []))]) || 'done') : off ? 'recovery' : '—'});
+  items.push({ic:sick && !ws.length ? '🤒' : '🏋️', l:sick && !ws.length ? 'Recovering' : off ? 'Rest day' : 'Workout', ok:ws.length > 0 || off, v:ws.length ? (autoName([...new Set(ws.flatMap(w => w.parts || []))]) || 'done') : sick ? 'taking it easy' : off ? 'recovery' : '—'});
   const sl = sleepTotal(d); items.push({ic:'😴', l:'Sleep', ok:sl >= num(st.sleepTarget) * 0.95, v:sl ? `${round(sl,1)} / ${st.sleepTarget} hrs` : '—'});
-  (st.liftGoals || []).filter(g => g.unit === 'day').forEach(g => { const r = dayReps(g.ex, d); items.push({ic:'💯', l:`${g.ex}s`, ok:r >= num(g.target), v:`${r} / ${g.target}`}); });
+  (st.liftGoals || []).filter(g => g.unit === 'day').forEach(g => { const r = dayReps(g.ex, d); items.push({ic:'💯', l:`${g.ex}s`, ok:sick || r >= num(g.target), v:sick && r < num(g.target) ? 'paused' : `${r} / ${g.target}`}); });
   recOf(d).forEach(r => { const R = REC.find(x => x[0] === r.t); if (R && !items.find(i => i.k === r.t)) items.push({k:r.t, ic:R[1], l:R[2], ok:true, v:`${recOf(d).filter(x => x.t === r.t).reduce((a, x) => a + num(x.m), 0)} min`, bonus:true}); });
   const core = items.filter(i => !i.bonus);
   return {items, done:core.filter(i => i.ok).length, total:core.length, cal:tot.cal};
@@ -2333,6 +2350,10 @@ const A = {
   planGo: a => planGo(+a.dataset.p, +a.dataset.d),
   planMenu: a => { S.planI = +a.dataset.v; openModal('planMenu'); },
   planRm: a => { if (!armDelete(a)) return; const st = settings(); put('settings', {...st, kind:'settings', plans:(st.plans || []).filter((_, i) => i !== S.planI)}); closeModal(); toast('Plan removed'); },
+  skipMeal: a => { const m = a.dataset.v, d = dayDoc(S.date), s = new Set(d.skip || []); s.has(m) ? s.delete(m) : s.add(m); d.skip = [...s]; put('d_' + S.date, d); toast(s.has(m) ? `${m} marked as skipped` : `${m} unskipped`); },
+  sick: () => openModal('sick'),
+  sickSet: a => { const n = +a.dataset.v; for (let i = 0; i < n; i++) { const dd = addDays(S.date, i), d = dayDoc(dd); d.sick = true; d.off = false; put('d_' + dd, d); } closeModal(); toast(`Recovering for ${n} day${n > 1 ? 's' : ''} — get well 🙏`); },
+  sickOff: () => { let dd = S.date; while (isSick(dd)) { const d = dayDoc(dd); d.sick = false; put('d_' + dd, d); dd = addDays(dd, 1); } closeModal(); toast('Welcome back 💪'); },
   mealRetry: () => { const j = S.mealJob; if (j) photoMeal(j.meal, j.blob); },
   mealManual: () => { const j = S.mealJob; S.mealJob = null; openFood(j ? j.meal : guessMeal()); },
   insights: () => runInsights(),
